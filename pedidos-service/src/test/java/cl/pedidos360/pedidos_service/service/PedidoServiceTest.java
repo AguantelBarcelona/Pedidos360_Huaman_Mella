@@ -5,6 +5,7 @@ import cl.pedidos360.pedidos_service.client.ProductoClient;
 import cl.pedidos360.pedidos_service.client.ProductoResponse;
 import cl.pedidos360.pedidos_service.dto.CrearPedidoRequest;
 import cl.pedidos360.pedidos_service.model.Pedido;
+import cl.pedidos360.pedidos_service.messaging.EventoOutboxService;
 import cl.pedidos360.pedidos_service.repository.PedidoRepository;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -35,6 +36,9 @@ class PedidoServiceTest {
     @Mock
     private InventarioClient inventarioClient;
 
+    @Mock
+    private EventoOutboxService eventoOutboxService;
+
     private PedidoService pedidoService;
 
     @BeforeEach
@@ -42,7 +46,8 @@ class PedidoServiceTest {
         pedidoService = new PedidoService(
                 pedidoRepository,
                 productoClient,
-                inventarioClient
+                inventarioClient,
+                eventoOutboxService
         );
     }
 
@@ -149,6 +154,8 @@ class PedidoServiceTest {
 
         verify(pedidoRepository)
                 .save(any(Pedido.class));
+
+        verify(eventoOutboxService).registrarPedidoCreado(resultado);
     }
 
     @Test

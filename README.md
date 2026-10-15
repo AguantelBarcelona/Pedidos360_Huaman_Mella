@@ -1,7 +1,7 @@
 # Pedidos360 Huaman Mella — Evaluacion Parcial 2
 
-Este repositorio de trabajo unifica las cuatro aplicaciones del Parcial 1 SIN modificar su codigo de negocio.
-Se agrega infraestructura declarativa de AWS para comenzar el Parcial 2.
+Este repositorio de trabajo unifica las cuatro aplicaciones del Parcial 1.
+En la Etapa 2 se modifico exclusivamente pedidos-service para agregar un publicador SNS con outbox transaccional. El resto de servicios y el frontend conserva el codigo original.
 
 ## Contenido
 
@@ -14,7 +14,7 @@ Se agrega infraestructura declarativa de AWS para comenzar el Parcial 2.
 
 ## Estado y limites
 
-**Preparado, no desplegado**. No hemos ejecutado compilaciones, pruebas, AWS ni creado nuevo microservicio administrador. Faltan los productores, consumidores, administrador y pruebas del Parcial 2.
+**Infraestructura AWS creada y fanout/filtros comprobados por el estudiante en Learner Lab.** El publicador Java ahora esta preparado pero no se ha compilado ni probado en EC2. Faltan consumidores, administrador y pruebas de procesamiento/dlq. Instrucciones: `docs/ETAPA_2_PUBLICADOR_SNS.md`.
 
 ## Probar la base anterior (requiere la configuracion real del Parcial 1)
 
@@ -54,4 +54,4 @@ No ejecutar `deploy` hasta confirmar region AWS y permisos. La plantilla no incl
 
 La prueba de mensajes requiere publicar el atributo SNS **`eventType` (String)** para que funcionen los filtros; un cuerpo JSON con `eventType` no basta para esta plantilla.
 
-Siguiente etapa: integrar productor/outbox en `pedidos-service` y crear consumidores `@SqsListener` con ACK explicito, idempotencia y manejo de DLQ. La confirmacion del flujo completo requiere realizar pruebas reales en AWS.
+Siguiente etapa: probar el productor/outbox en `pedidos-service` y crear consumidores `@SqsListener` con ACK explicito, idempotencia y manejo de DLQ. La confirmacion del flujo completo requiere realizar pruebas reales en AWS.
