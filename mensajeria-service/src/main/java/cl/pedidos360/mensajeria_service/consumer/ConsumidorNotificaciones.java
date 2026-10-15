@@ -1,6 +1,6 @@
-
 package cl.pedidos360.mensajeria_service.consumer;
 
+import cl.pedidos360.mensajeria_service.service.RegistroMensajesProcesados;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import org.slf4j.Logger;
@@ -31,13 +31,18 @@ public class ConsumidorNotificaciones {
 
     private final SqsClient sqs;
     private final JsonMapper jsonMapper;
+    private final RegistroMensajesProcesados registro;
+
     private String queueUrl;
 
     public ConsumidorNotificaciones(
             JsonMapper jsonMapper,
+            RegistroMensajesProcesados registro,
             @Value("${aws.region:us-east-1}") String region) {
 
         this.jsonMapper = jsonMapper;
+        this.registro = registro;
+
         this.sqs = SqsClient.builder()
                 .region(Region.of(region))
                 .build();
@@ -45,13 +50,16 @@ public class ConsumidorNotificaciones {
 
     @PostConstruct
     public void iniciar() {
+
         queueUrl = sqs.getQueueUrl(
                 GetQueueUrlRequest.builder()
                         .queueName("pedidos360-notificaciones")
                         .build()
         ).queueUrl();
 
-        log.info("Consumidor SQS iniciado cola=pedidos360-notificaciones");
+        log.info(
+                "Consumidor iniciado cola=pedidos360-notificaciones"
+        );
     }
 
     @Scheduled(fixedDelayString = "${mensajeria.poll-delay-ms:5000}")
@@ -75,8 +83,11 @@ public class ConsumidorNotificaciones {
             }
 
         } catch (Exception e) {
-            log.error("Error consultando cola de notificaciones: {}",
-                    e.getMessage(), e);
+            log.error(
+                    "SQS_CONSULTA_ERROR cola=notificaciones razon={}",
+                    e.getMessage(),
+                    e
+            );
         }
     }
 
@@ -87,29 +98,53 @@ public class ConsumidorNotificaciones {
                 "1"
         );
 
-        try {
-            JsonNode evento = jsonMapper.readTree(mensaje.body());
+        String eventId = "desconocido";
 
-            String eventId = evento.path("eventId").asText();
-            String tipo = evento.path("eventType").asText();
+        try {
+            JsonNode evento = extraerEvento(mensaje.body());
+
+            eventId = evento.path("eventId").asText();
+            String eventType = evento.path("eventType").asText();
             long pedidoId = evento.path("pedidoId").asLong();
 
-            if (!"PEDIDO_CREADO".equals(tipo)
-                    || eventId.isBlank()
+            if (eventId.isBlank()
+                    || !"PEDIDO_CREADO".equals(eventType)
                     || pedidoId <= 0) {
 
                 throw new IllegalArgumentException(
-                        "Evento invalido para notificaciones"
+                        "Evento PEDIDO_CREADO invalido"
                 );
             }
 
-            // Primera etapa: validar y registrar la notificacion.
-            log.info(
-                    "NOTIFICACION_PROCESADA eventId={} pedidoId={} intento={} messageId={}",
-                    eventId, pedidoId, intento, mensaje.messageId()
+            boolean esNuevo = registro.registrarSiNuevo(
+                    eventId,
+                    "notificaciones",
+                    eventType,
+                    mensaje.messageId()
             );
 
-            // ACK: eliminar de SQS solo despues del procesamiento exitoso.
+            if (esNuevo) {
+
+                // Por ahora se registra la notificacion.
+                log.info(
+                        "NOTIFICACION_PROCESADA eventId={} pedidoId={} intento={} messageId={}",
+                        eventId,
+                        pedidoId,
+                        intento,
+                        mensaje.messageId()
+                );
+
+            } else {
+
+                log.info(
+                        "SQS_DUPLICADO cola=notificaciones eventId={} intento={} messageId={}",
+                        eventId,
+                        intento,
+                        mensaje.messageId()
+                );
+            }
+
+            // ACK: eliminar mensaje tras registrar o reconocer duplicado.
             sqs.deleteMessage(
                     DeleteMessageRequest.builder()
                             .queueUrl(queueUrl)
@@ -118,18 +153,39 @@ public class ConsumidorNotificaciones {
             );
 
             log.info(
-                    "SQS_ACK eventId={} messageId={}",
-                    eventId, mensaje.messageId()
+                    "SQS_ACK cola=notificaciones eventId={} messageId={}",
+                    eventId,
+                    mensaje.messageId()
             );
 
         } catch (Exception e) {
 
-            // Sin ACK: SQS podra reintentar y luego aplicar la DLQ.
+            // Sin ACK: SQS puede reintentar y luego aplicar la DLQ.
             log.error(
-                    "SQS_ERROR messageId={} intento={} razon={}",
-                    mensaje.messageId(), intento, e.getMessage()
+                    "SQS_ERROR cola=notificaciones eventId={} messageId={} intento={} razon={}",
+                    eventId,
+                    mensaje.messageId(),
+                    intento,
+                    e.getMessage()
             );
         }
+    }
+
+    private JsonNode extraerEvento(String cuerpo) throws Exception {
+
+        JsonNode raiz = jsonMapper.readTree(cuerpo);
+
+        // Permite recibir mensajes con el envoltorio normal de SNS.
+        if ("Notification".equals(raiz.path("Type").asText())
+                && !raiz.path("Message").isMissingNode()) {
+
+            return jsonMapper.readTree(
+                    raiz.path("Message").asText()
+            );
+        }
+
+        // Tambien permite mensajes con Raw Message Delivery.
+        return raiz;
     }
 
     @PreDestroy

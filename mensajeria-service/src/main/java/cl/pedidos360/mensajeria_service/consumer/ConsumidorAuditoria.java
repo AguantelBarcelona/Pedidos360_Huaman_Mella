@@ -1,6 +1,7 @@
 
 package cl.pedidos360.mensajeria_service.consumer;
 
+import cl.pedidos360.mensajeria_service.service.RegistroMensajesProcesados;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import org.slf4j.Logger;
@@ -31,13 +32,18 @@ public class ConsumidorAuditoria {
 
     private final SqsClient sqs;
     private final JsonMapper jsonMapper;
+    private final RegistroMensajesProcesados registro;
+
     private String queueUrl;
 
     public ConsumidorAuditoria(
             JsonMapper jsonMapper,
+            RegistroMensajesProcesados registro,
             @Value("${aws.region:us-east-1}") String region) {
 
         this.jsonMapper = jsonMapper;
+        this.registro = registro;
+
         this.sqs = SqsClient.builder()
                 .region(Region.of(region))
                 .build();
@@ -52,7 +58,7 @@ public class ConsumidorAuditoria {
                         .build()
         ).queueUrl();
 
-        log.info("Consumidor SQS iniciado cola=pedidos360-auditoria");
+        log.info("Consumidor iniciado cola=pedidos360-auditoria");
     }
 
     @Scheduled(fixedDelayString = "${mensajeria.poll-delay-ms:5000}")
@@ -78,8 +84,9 @@ public class ConsumidorAuditoria {
         } catch (Exception e) {
 
             log.error(
-                    "Error consultando cola de auditoria: {}",
-                    e.getMessage(), e
+                    "SQS_CONSULTA_ERROR cola=auditoria razon={}",
+                    e.getMessage(),
+                    e
             );
         }
     }
@@ -91,10 +98,12 @@ public class ConsumidorAuditoria {
                 "1"
         );
 
-        try {
-            JsonNode evento = jsonMapper.readTree(mensaje.body());
+        String eventId = "desconocido";
 
-            String eventId = evento.path("eventId").asText();
+        try {
+            JsonNode evento = extraerEvento(mensaje.body());
+
+            eventId = evento.path("eventId").asText();
             String eventType = evento.path("eventType").asText();
 
             if (eventId.isBlank()) {
@@ -102,6 +111,8 @@ public class ConsumidorAuditoria {
                         "El evento no tiene eventId"
                 );
             }
+
+            String detalle;
 
             if ("PEDIDO_CREADO".equals(eventType)) {
 
@@ -113,13 +124,7 @@ public class ConsumidorAuditoria {
                     );
                 }
 
-                log.info(
-                        "AUDITORIA_PEDIDO eventId={} pedidoId={} intento={} messageId={}",
-                        eventId,
-                        pedidoId,
-                        intento,
-                        mensaje.messageId()
-                );
+                detalle = "pedidoId=" + pedidoId;
 
             } else if ("PRODUCTO_ACTUALIZADO".equals(eventType)) {
 
@@ -131,13 +136,7 @@ public class ConsumidorAuditoria {
                     );
                 }
 
-                log.info(
-                        "AUDITORIA_PRODUCTO eventId={} productoId={} intento={} messageId={}",
-                        eventId,
-                        productoId,
-                        intento,
-                        mensaje.messageId()
-                );
+                detalle = "productoId=" + productoId;
 
             } else {
 
@@ -146,7 +145,35 @@ public class ConsumidorAuditoria {
                 );
             }
 
-            // ACK: eliminar solo despues de registrar el evento.
+            boolean esNuevo = registro.registrarSiNuevo(
+                    eventId,
+                    "auditoria",
+                    eventType,
+                    mensaje.messageId()
+            );
+
+            if (esNuevo) {
+
+                log.info(
+                        "AUDITORIA_PROCESADA eventId={} tipo={} {} intento={} messageId={}",
+                        eventId,
+                        eventType,
+                        detalle,
+                        intento,
+                        mensaje.messageId()
+                );
+
+            } else {
+
+                log.info(
+                        "SQS_DUPLICADO cola=auditoria eventId={} intento={} messageId={}",
+                        eventId,
+                        intento,
+                        mensaje.messageId()
+                );
+            }
+
+            // ACK despues del registro o reconocimiento del duplicado.
             sqs.deleteMessage(
                     DeleteMessageRequest.builder()
                             .queueUrl(queueUrl)
@@ -162,14 +189,32 @@ public class ConsumidorAuditoria {
 
         } catch (Exception e) {
 
-            // Sin ACK: SQS reintentara segun la politica de la cola.
+            // Sin ACK: SQS permite reintentos y eventual envio a DLQ.
             log.error(
-                    "SQS_ERROR cola=auditoria messageId={} intento={} razon={}",
+                    "SQS_ERROR cola=auditoria eventId={} messageId={} intento={} razon={}",
+                    eventId,
                     mensaje.messageId(),
                     intento,
                     e.getMessage()
             );
         }
+    }
+
+    private JsonNode extraerEvento(String cuerpo) throws Exception {
+
+        JsonNode raiz = jsonMapper.readTree(cuerpo);
+
+        // Evento con envoltorio SNS.
+        if ("Notification".equals(raiz.path("Type").asText())
+                && !raiz.path("Message").isMissingNode()) {
+
+            return jsonMapper.readTree(
+                    raiz.path("Message").asText()
+            );
+        }
+
+        // Evento con Raw Message Delivery.
+        return raiz;
     }
 
     @PreDestroy

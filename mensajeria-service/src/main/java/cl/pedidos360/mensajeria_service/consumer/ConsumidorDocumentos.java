@@ -1,6 +1,6 @@
-
 package cl.pedidos360.mensajeria_service.consumer;
 
+import cl.pedidos360.mensajeria_service.service.RegistroMensajesProcesados;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import org.slf4j.Logger;
@@ -31,13 +31,18 @@ public class ConsumidorDocumentos {
 
     private final SqsClient sqs;
     private final JsonMapper jsonMapper;
+    private final RegistroMensajesProcesados registro;
+
     private String queueUrl;
 
     public ConsumidorDocumentos(
             JsonMapper jsonMapper,
+            RegistroMensajesProcesados registro,
             @Value("${aws.region:us-east-1}") String region) {
 
         this.jsonMapper = jsonMapper;
+        this.registro = registro;
+
         this.sqs = SqsClient.builder()
                 .region(Region.of(region))
                 .build();
@@ -52,7 +57,7 @@ public class ConsumidorDocumentos {
                         .build()
         ).queueUrl();
 
-        log.info("Consumidor SQS iniciado cola=pedidos360-documentos");
+        log.info("Consumidor iniciado cola=pedidos360-documentos");
     }
 
     @Scheduled(fixedDelayString = "${mensajeria.poll-delay-ms:5000}")
@@ -77,8 +82,9 @@ public class ConsumidorDocumentos {
 
         } catch (Exception e) {
             log.error(
-                    "Error consultando cola de documentos: {}",
-                    e.getMessage(), e
+                    "SQS_CONSULTA_ERROR cola=documentos razon={}",
+                    e.getMessage(),
+                    e
             );
         }
     }
@@ -90,32 +96,53 @@ public class ConsumidorDocumentos {
                 "1"
         );
 
-        try {
-            JsonNode evento = jsonMapper.readTree(mensaje.body());
+        String eventId = "desconocido";
 
-            String eventId = evento.path("eventId").asText();
+        try {
+            JsonNode evento = extraerEvento(mensaje.body());
+
+            eventId = evento.path("eventId").asText();
             String eventType = evento.path("eventType").asText();
             long pedidoId = evento.path("pedidoId").asLong();
 
-            if (!"PEDIDO_CREADO".equals(eventType)
-                    || eventId.isBlank()
+            if (eventId.isBlank()
+                    || !"PEDIDO_CREADO".equals(eventType)
                     || pedidoId <= 0) {
 
                 throw new IllegalArgumentException(
-                        "Evento invalido para documentos"
+                        "Evento PEDIDO_CREADO invalido"
                 );
             }
 
-            // Primera etapa: registrar la solicitud documental.
-            log.info(
-                    "DOCUMENTO_PROCESADO eventId={} pedidoId={} intento={} messageId={}",
+            boolean esNuevo = registro.registrarSiNuevo(
                     eventId,
-                    pedidoId,
-                    intento,
+                    "documentos",
+                    eventType,
                     mensaje.messageId()
             );
 
-            // ACK: eliminar el mensaje despues del procesamiento exitoso.
+            if (esNuevo) {
+
+                // Etapa actual: registrar la solicitud documental.
+                log.info(
+                        "DOCUMENTO_PROCESADO eventId={} pedidoId={} intento={} messageId={}",
+                        eventId,
+                        pedidoId,
+                        intento,
+                        mensaje.messageId()
+                );
+
+            } else {
+
+                log.info(
+                        "SQS_DUPLICADO cola=documentos eventId={} intento={} messageId={}",
+                        eventId,
+                        intento,
+                        mensaje.messageId()
+                );
+            }
+
+            // ACK solo despues del registro correcto en PostgreSQL.
             sqs.deleteMessage(
                     DeleteMessageRequest.builder()
                             .queueUrl(queueUrl)
@@ -133,12 +160,30 @@ public class ConsumidorDocumentos {
 
             // Sin ACK: SQS reintentara y podra enviar a DLQ.
             log.error(
-                    "SQS_ERROR cola=documentos messageId={} intento={} razon={}",
+                    "SQS_ERROR cola=documentos eventId={} messageId={} intento={} razon={}",
+                    eventId,
                     mensaje.messageId(),
                     intento,
                     e.getMessage()
             );
         }
+    }
+
+    private JsonNode extraerEvento(String cuerpo) throws Exception {
+
+        JsonNode raiz = jsonMapper.readTree(cuerpo);
+
+        // Mensaje recibido con envoltorio SNS.
+        if ("Notification".equals(raiz.path("Type").asText())
+                && !raiz.path("Message").isMissingNode()) {
+
+            return jsonMapper.readTree(
+                    raiz.path("Message").asText()
+            );
+        }
+
+        // Mensaje directo o Raw Message Delivery.
+        return raiz;
     }
 
     @PreDestroy
