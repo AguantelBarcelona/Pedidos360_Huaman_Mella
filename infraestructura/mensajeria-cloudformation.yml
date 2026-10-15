@@ -1,0 +1,215 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >-
+  Pedidos360 EP2 - topico SNS, 3 colas SQS Standard, 3 DLQ, filtros
+  de suscripcion y alarmas CloudWatch. No incluye consumidores.
+
+Parameters:
+  PrefijoProyecto:
+    Type: String
+    Default: pedidos360
+    AllowedPattern: '^[a-zA-Z0-9-]+$'
+    Description: Prefijo compartido para todos los recursos de mensajeria.
+
+Resources:
+  TopicoEventos:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Sub '${PrefijoProyecto}-eventos'
+      Tags:
+        - Key: Proyecto
+          Value: Pedidos360
+        - Key: Evaluacion
+          Value: Parcial2
+
+  DlqNotificaciones:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub '${PrefijoProyecto}-notificaciones-dlq'
+      MessageRetentionPeriod: 1209600  # 14 dias; mayor que la cola origen
+      SqsManagedSseEnabled: true
+  DlqDocumentos:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub '${PrefijoProyecto}-documentos-dlq'
+      MessageRetentionPeriod: 1209600
+      SqsManagedSseEnabled: true
+  DlqAuditoria:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub '${PrefijoProyecto}-auditoria-dlq'
+      MessageRetentionPeriod: 1209600
+      SqsManagedSseEnabled: true
+
+  ColaNotificaciones:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub '${PrefijoProyecto}-notificaciones'
+      MessageRetentionPeriod: 345600  # 4 dias
+      VisibilityTimeout: 120          # ajustar segun duracion real del consumidor
+      ReceiveMessageWaitTimeSeconds: 20
+      SqsManagedSseEnabled: true
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt DlqNotificaciones.Arn
+        maxReceiveCount: 3
+  ColaDocumentos:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub '${PrefijoProyecto}-documentos'
+      MessageRetentionPeriod: 345600
+      VisibilityTimeout: 120
+      ReceiveMessageWaitTimeSeconds: 20
+      SqsManagedSseEnabled: true
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt DlqDocumentos.Arn
+        maxReceiveCount: 3
+  ColaAuditoria:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub '${PrefijoProyecto}-auditoria'
+      MessageRetentionPeriod: 345600
+      VisibilityTimeout: 120
+      ReceiveMessageWaitTimeSeconds: 20
+      SqsManagedSseEnabled: true
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt DlqAuditoria.Arn
+        maxReceiveCount: 3
+
+  PermisosPublicacionDesdeSns:
+    Type: AWS::SQS::QueuePolicy
+    Properties:
+      Queues:
+        - !Ref ColaNotificaciones
+        - !Ref ColaDocumentos
+        - !Ref ColaAuditoria
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: PermitirSnsNotificaciones
+            Effect: Allow
+            Principal: { Service: sns.amazonaws.com }
+            Action: sqs:SendMessage
+            Resource: !GetAtt ColaNotificaciones.Arn
+            Condition:
+              ArnEquals: { 'aws:SourceArn': !Ref TopicoEventos }
+          - Sid: PermitirSnsDocumentos
+            Effect: Allow
+            Principal: { Service: sns.amazonaws.com }
+            Action: sqs:SendMessage
+            Resource: !GetAtt ColaDocumentos.Arn
+            Condition:
+              ArnEquals: { 'aws:SourceArn': !Ref TopicoEventos }
+          - Sid: PermitirSnsAuditoria
+            Effect: Allow
+            Principal: { Service: sns.amazonaws.com }
+            Action: sqs:SendMessage
+            Resource: !GetAtt ColaAuditoria.Arn
+            Condition:
+              ArnEquals: { 'aws:SourceArn': !Ref TopicoEventos }
+
+  SuscripcionNotificaciones:
+    Type: AWS::SNS::Subscription
+    DependsOn: PermisosPublicacionDesdeSns
+    Properties:
+      TopicArn: !Ref TopicoEventos
+      Protocol: sqs
+      Endpoint: !GetAtt ColaNotificaciones.Arn
+      RawMessageDelivery: true
+      FilterPolicyScope: MessageAttributes
+      FilterPolicy:
+        eventType: [PEDIDO_CREADO, PEDIDO_CANCELADO]
+  SuscripcionDocumentos:
+    Type: AWS::SNS::Subscription
+    DependsOn: PermisosPublicacionDesdeSns
+    Properties:
+      TopicArn: !Ref TopicoEventos
+      Protocol: sqs
+      Endpoint: !GetAtt ColaDocumentos.Arn
+      RawMessageDelivery: true
+      FilterPolicyScope: MessageAttributes
+      FilterPolicy:
+        eventType: [PEDIDO_CREADO]
+  SuscripcionAuditoria:
+    Type: AWS::SNS::Subscription
+    DependsOn: PermisosPublicacionDesdeSns
+    Properties:
+      TopicArn: !Ref TopicoEventos
+      Protocol: sqs
+      Endpoint: !GetAtt ColaAuditoria.Arn
+      RawMessageDelivery: true
+      FilterPolicyScope: MessageAttributes
+      FilterPolicy:
+        eventType: [PEDIDO_CREADO, PEDIDO_CANCELADO, PRODUCTO_ACTUALIZADO]
+
+  AlarmaDlqNotificaciones:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub '${PrefijoProyecto}-dlq-notificaciones-con-mensajes'
+      AlarmDescription: Mensajes pendientes de diagnostico en DLQ notificaciones.
+      Namespace: AWS/SQS
+      MetricName: ApproximateNumberOfMessagesVisible
+      Dimensions:
+        - Name: QueueName
+          Value: !GetAtt DlqNotificaciones.QueueName
+      Statistic: Maximum
+      Period: 60
+      EvaluationPeriods: 1
+      DatapointsToAlarm: 1
+      Threshold: 0
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+  AlarmaDlqDocumentos:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub '${PrefijoProyecto}-dlq-documentos-con-mensajes'
+      AlarmDescription: Mensajes pendientes de diagnostico en DLQ documentos.
+      Namespace: AWS/SQS
+      MetricName: ApproximateNumberOfMessagesVisible
+      Dimensions:
+        - Name: QueueName
+          Value: !GetAtt DlqDocumentos.QueueName
+      Statistic: Maximum
+      Period: 60
+      EvaluationPeriods: 1
+      DatapointsToAlarm: 1
+      Threshold: 0
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+  AlarmaDlqAuditoria:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub '${PrefijoProyecto}-dlq-auditoria-con-mensajes'
+      AlarmDescription: Mensajes pendientes de diagnostico en DLQ auditoria.
+      Namespace: AWS/SQS
+      MetricName: ApproximateNumberOfMessagesVisible
+      Dimensions:
+        - Name: QueueName
+          Value: !GetAtt DlqAuditoria.QueueName
+      Statistic: Maximum
+      Period: 60
+      EvaluationPeriods: 1
+      DatapointsToAlarm: 1
+      Threshold: 0
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+
+Outputs:
+  TopicoArn:
+    Value: !Ref TopicoEventos
+  ColaNotificacionesUrl:
+    Value: !Ref ColaNotificaciones
+  ColaDocumentosUrl:
+    Value: !Ref ColaDocumentos
+  ColaAuditoriaUrl:
+    Value: !Ref ColaAuditoria
+  ColaNotificacionesArn:
+    Value: !GetAtt ColaNotificaciones.Arn
+  ColaDocumentosArn:
+    Value: !GetAtt ColaDocumentos.Arn
+  ColaAuditoriaArn:
+    Value: !GetAtt ColaAuditoria.Arn
+  DlqNotificacionesUrl:
+    Value: !Ref DlqNotificaciones
+  DlqDocumentosUrl:
+    Value: !Ref DlqDocumentos
+  DlqAuditoriaUrl:
+    Value: !Ref DlqAuditoria
