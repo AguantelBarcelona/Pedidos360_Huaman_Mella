@@ -1,0 +1,93 @@
+.integration-page {
+  width: 100%;
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 24px;
+  box-sizing: border-box;
+  font-family: system-ui, sans-serif;
+  text-align: left;
+}
+
+.integration-page__cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 20px;
+}
+
+.integration-card {
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 24px;
+  background: #ffffff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.integration-card h3 {
+  margin-top: 0;
+}
+
+.integration-card__actions {
+  display: grid;
+  gap: 10px;
+}
+
+.integration-card__actions--products {
+  gap: 20px;
+}
+
+.integration-product-card {
+  display: grid;
+  gap: 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 18px;
+  background: #ffffff;
+}
+
+.integration-product-card h4 {
+  margin: 0;
+}
+
+.integration-field {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.integration-field input {
+  min-width: 0;
+  padding: 7px 9px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font: inherit;
+}
+
+.integration-field input[type='number'] {
+  width: 70px;
+}
+
+.integration-field input.integration-field__price {
+  width: 90px;
+}
+
+.integration-result {
+  padding: 12px;
+  background: #f4f4f4;
+  white-space: pre-wrap;
+  overflow-x: auto;
+}
+
+@media (max-width: 520px) {
+  .integration-page {
+    padding: 20px 16px;
+  }
+
+  .integration-page__cards {
+    grid-template-columns: 1fr;
+  }
+
+  .integration-card {
+    padding: 18px;
+  }
+}

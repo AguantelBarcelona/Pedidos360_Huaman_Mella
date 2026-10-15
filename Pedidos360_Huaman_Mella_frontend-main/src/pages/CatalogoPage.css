@@ -1,0 +1,141 @@
+.catalogo-page {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 32px 24px;
+  font-family: system-ui, sans-serif;
+}
+
+.catalogo-page__header {
+  margin-bottom: 28px;
+}
+
+.catalogo-page__header h1 {
+  margin-bottom: 8px;
+}
+
+.catalogo-page__intro {
+  margin: 0;
+  color: #4b5563;
+}
+
+.catalogo-page__loading,
+.catalogo-page__empty,
+.catalogo-page__error,
+.catalogo-page__success {
+  border-radius: 10px;
+}
+
+.catalogo-page__loading {
+  padding: 32px;
+}
+
+.catalogo-page__error {
+  padding: 20px;
+  border: 1px solid #fecaca;
+  background: #fef2f2;
+  color: #991b1b;
+}
+
+.catalogo-page__success {
+  padding: 20px;
+  margin-bottom: 24px;
+  border: 1px solid #a7f3d0;
+  background: #ecfdf5;
+  color: #065f46;
+}
+
+.catalogo-page__success p {
+  margin: 8px 0 16px;
+}
+
+.catalogo-page__error p {
+  margin-bottom: 0;
+}
+
+.catalogo-page__empty {
+  padding: 32px;
+  border: 1px solid #e5e7eb;
+  background: #f9fafb;
+}
+
+.catalogo-page__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 20px;
+}
+
+.catalogo-product-card {
+  display: flex;
+  flex-direction: column;
+  padding: 24px;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  background: #ffffff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.catalogo-product-card__content {
+  flex: 1;
+}
+
+.catalogo-product-card__category {
+  margin-bottom: 6px;
+  color: #6b7280;
+  font-size: 13px;
+}
+
+.catalogo-product-card h2 {
+  margin-top: 0;
+  margin-bottom: 16px;
+}
+
+.catalogo-product-card__description {
+  color: #4b5563;
+}
+
+.catalogo-product-card__price {
+  margin-top: 20px;
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.catalogo-product-card__order {
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid #e5e7eb;
+}
+
+.catalogo-product-card__order label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 600;
+}
+
+.catalogo-product-card__quantity {
+  width: 90px;
+  margin-bottom: 14px;
+  padding: 8px 10px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+}
+
+.catalogo-product-card__order-button {
+  display: block;
+  width: 100%;
+  padding: 10px 14px;
+  font-weight: 700;
+}
+
+.catalogo-product-card__order-button:not(:disabled) {
+  cursor: pointer;
+}
+
+.catalogo-product-card__order-button:disabled {
+  cursor: not-allowed;
+}
+
+@media (max-width: 520px) {
+  .catalogo-page {
+    padding: 24px 16px;
+  }
+}

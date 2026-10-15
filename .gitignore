@@ -1,0 +1,22 @@
+# Entregable unico de Pedidos360 - evitar subir secretos y artefactos
+**/target/
+**/.mvn/wrapper/maven-wrapper.jar
+**/node_modules/
+**/dist/
+**/coverage/
+**/.idea/
+**/.vscode/
+**/*.iml
+**/.DS_Store
+**/.env
+**/.env.*
+!**/.env.example
+**/*-secrets.properties
+**/application-local.properties
+**/application-prod.properties
+*.pem
+*.key
+*.p12
+*.jks
+*.log
+.aws/
