@@ -1,6 +1,6 @@
-
 package cl.pedidos360.mensajeria_service.consumer;
 
+import cl.pedidos360.mensajeria_service.service.ControlConsumidores;
 import cl.pedidos360.mensajeria_service.service.RegistroMensajesProcesados;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
@@ -33,16 +33,19 @@ public class ConsumidorAuditoria {
     private final SqsClient sqs;
     private final JsonMapper jsonMapper;
     private final RegistroMensajesProcesados registro;
+    private final ControlConsumidores control;
 
     private String queueUrl;
 
     public ConsumidorAuditoria(
             JsonMapper jsonMapper,
             RegistroMensajesProcesados registro,
+            ControlConsumidores control,
             @Value("${aws.region:us-east-1}") String region) {
 
         this.jsonMapper = jsonMapper;
         this.registro = registro;
+        this.control = control;
 
         this.sqs = SqsClient.builder()
                 .region(Region.of(region))
@@ -64,6 +67,11 @@ public class ConsumidorAuditoria {
     @Scheduled(fixedDelayString = "${mensajeria.poll-delay-ms:5000}")
     public void consultarMensajes() {
 
+        // No consultar nuevos mensajes si auditoria esta pausada.
+        if (!control.estaActivo("auditoria")) {
+            return;
+        }
+
         try {
             var respuesta = sqs.receiveMessage(
                     ReceiveMessageRequest.builder()
@@ -82,7 +90,6 @@ public class ConsumidorAuditoria {
             }
 
         } catch (Exception e) {
-
             log.error(
                     "SQS_CONSULTA_ERROR cola=auditoria razon={}",
                     e.getMessage(),
@@ -173,7 +180,7 @@ public class ConsumidorAuditoria {
                 );
             }
 
-            // ACK despues del registro o reconocimiento del duplicado.
+            // ACK solo despues del registro correcto.
             sqs.deleteMessage(
                     DeleteMessageRequest.builder()
                             .queueUrl(queueUrl)
@@ -189,7 +196,7 @@ public class ConsumidorAuditoria {
 
         } catch (Exception e) {
 
-            // Sin ACK: SQS permite reintentos y eventual envio a DLQ.
+            // Sin ACK para permitir reintentos y posterior DLQ.
             log.error(
                     "SQS_ERROR cola=auditoria eventId={} messageId={} intento={} razon={}",
                     eventId,
@@ -204,7 +211,7 @@ public class ConsumidorAuditoria {
 
         JsonNode raiz = jsonMapper.readTree(cuerpo);
 
-        // Evento con envoltorio SNS.
+        // Mensaje con envoltorio SNS.
         if ("Notification".equals(raiz.path("Type").asText())
                 && !raiz.path("Message").isMissingNode()) {
 
@@ -213,7 +220,7 @@ public class ConsumidorAuditoria {
             );
         }
 
-        // Evento con Raw Message Delivery.
+        // Mensaje directo o Raw Message Delivery.
         return raiz;
     }
 

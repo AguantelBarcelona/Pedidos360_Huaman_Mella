@@ -1,5 +1,6 @@
 package cl.pedidos360.mensajeria_service.consumer;
 
+import cl.pedidos360.mensajeria_service.service.ControlConsumidores;
 import cl.pedidos360.mensajeria_service.service.RegistroMensajesProcesados;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
@@ -32,16 +33,19 @@ public class ConsumidorDocumentos {
     private final SqsClient sqs;
     private final JsonMapper jsonMapper;
     private final RegistroMensajesProcesados registro;
+    private final ControlConsumidores control;
 
     private String queueUrl;
 
     public ConsumidorDocumentos(
             JsonMapper jsonMapper,
             RegistroMensajesProcesados registro,
+            ControlConsumidores control,
             @Value("${aws.region:us-east-1}") String region) {
 
         this.jsonMapper = jsonMapper;
         this.registro = registro;
+        this.control = control;
 
         this.sqs = SqsClient.builder()
                 .region(Region.of(region))
@@ -62,6 +66,11 @@ public class ConsumidorDocumentos {
 
     @Scheduled(fixedDelayString = "${mensajeria.poll-delay-ms:5000}")
     public void consultarMensajes() {
+
+        // Si el consumidor esta pausado, no consulta SQS.
+        if (!control.estaActivo("documentos")) {
+            return;
+        }
 
         try {
             var respuesta = sqs.receiveMessage(
@@ -123,7 +132,6 @@ public class ConsumidorDocumentos {
 
             if (esNuevo) {
 
-                // Etapa actual: registrar la solicitud documental.
                 log.info(
                         "DOCUMENTO_PROCESADO eventId={} pedidoId={} intento={} messageId={}",
                         eventId,
@@ -142,7 +150,7 @@ public class ConsumidorDocumentos {
                 );
             }
 
-            // ACK solo despues del registro correcto en PostgreSQL.
+            // Confirmar el mensaje despues de registrarlo.
             sqs.deleteMessage(
                     DeleteMessageRequest.builder()
                             .queueUrl(queueUrl)
@@ -158,7 +166,7 @@ public class ConsumidorDocumentos {
 
         } catch (Exception e) {
 
-            // Sin ACK: SQS reintentara y podra enviar a DLQ.
+            // Sin ACK: SQS reintentara y podra enviarlo a DLQ.
             log.error(
                     "SQS_ERROR cola=documentos eventId={} messageId={} intento={} razon={}",
                     eventId,
@@ -173,7 +181,6 @@ public class ConsumidorDocumentos {
 
         JsonNode raiz = jsonMapper.readTree(cuerpo);
 
-        // Mensaje recibido con envoltorio SNS.
         if ("Notification".equals(raiz.path("Type").asText())
                 && !raiz.path("Message").isMissingNode()) {
 
@@ -182,7 +189,6 @@ public class ConsumidorDocumentos {
             );
         }
 
-        // Mensaje directo o Raw Message Delivery.
         return raiz;
     }
 

@@ -1,5 +1,6 @@
 package cl.pedidos360.mensajeria_service.consumer;
 
+import cl.pedidos360.mensajeria_service.service.ControlConsumidores;
 import cl.pedidos360.mensajeria_service.service.RegistroMensajesProcesados;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
@@ -32,16 +33,19 @@ public class ConsumidorNotificaciones {
     private final SqsClient sqs;
     private final JsonMapper jsonMapper;
     private final RegistroMensajesProcesados registro;
+    private final ControlConsumidores control;
 
     private String queueUrl;
 
     public ConsumidorNotificaciones(
             JsonMapper jsonMapper,
             RegistroMensajesProcesados registro,
+            ControlConsumidores control,
             @Value("${aws.region:us-east-1}") String region) {
 
         this.jsonMapper = jsonMapper;
         this.registro = registro;
+        this.control = control;
 
         this.sqs = SqsClient.builder()
                 .region(Region.of(region))
@@ -57,13 +61,16 @@ public class ConsumidorNotificaciones {
                         .build()
         ).queueUrl();
 
-        log.info(
-                "Consumidor iniciado cola=pedidos360-notificaciones"
-        );
+        log.info("Consumidor iniciado cola=pedidos360-notificaciones");
     }
 
     @Scheduled(fixedDelayString = "${mensajeria.poll-delay-ms:5000}")
     public void consultarMensajes() {
+
+        // Si esta pausado, no solicita nuevos mensajes a SQS.
+        if (!control.estaActivo("notificaciones")) {
+            return;
+        }
 
         try {
             var respuesta = sqs.receiveMessage(
@@ -124,8 +131,6 @@ public class ConsumidorNotificaciones {
             );
 
             if (esNuevo) {
-
-                // Por ahora se registra la notificacion.
                 log.info(
                         "NOTIFICACION_PROCESADA eventId={} pedidoId={} intento={} messageId={}",
                         eventId,
@@ -133,9 +138,7 @@ public class ConsumidorNotificaciones {
                         intento,
                         mensaje.messageId()
                 );
-
             } else {
-
                 log.info(
                         "SQS_DUPLICADO cola=notificaciones eventId={} intento={} messageId={}",
                         eventId,
@@ -144,7 +147,6 @@ public class ConsumidorNotificaciones {
                 );
             }
 
-            // ACK: eliminar mensaje tras registrar o reconocer duplicado.
             sqs.deleteMessage(
                     DeleteMessageRequest.builder()
                             .queueUrl(queueUrl)
@@ -159,8 +161,6 @@ public class ConsumidorNotificaciones {
             );
 
         } catch (Exception e) {
-
-            // Sin ACK: SQS puede reintentar y luego aplicar la DLQ.
             log.error(
                     "SQS_ERROR cola=notificaciones eventId={} messageId={} intento={} razon={}",
                     eventId,
@@ -175,7 +175,6 @@ public class ConsumidorNotificaciones {
 
         JsonNode raiz = jsonMapper.readTree(cuerpo);
 
-        // Permite recibir mensajes con el envoltorio normal de SNS.
         if ("Notification".equals(raiz.path("Type").asText())
                 && !raiz.path("Message").isMissingNode()) {
 
@@ -184,7 +183,6 @@ public class ConsumidorNotificaciones {
             );
         }
 
-        // Tambien permite mensajes con Raw Message Delivery.
         return raiz;
     }
 
