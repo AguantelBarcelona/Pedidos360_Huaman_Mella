@@ -6,10 +6,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
-/**
- * Dominio auditoria: registra todos los tipos de evento (PEDIDO_CREADO,
- * PEDIDO_CANCELADO, PRODUCTO_ACTUALIZADO). Guarda el JSON completo.
- */
+
 @Component
 public class AuditoriaProcesador implements ProcesadorEvento {
 
