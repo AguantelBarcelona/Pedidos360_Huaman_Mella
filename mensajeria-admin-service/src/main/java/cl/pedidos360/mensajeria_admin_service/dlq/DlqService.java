@@ -18,12 +18,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-/**
- * Operaciones sobre las DLQ. El reproceso y la purga se basan en
- * AdministracionMensajeriaController de mensajeria-service (version original del equipo).
- *
- * {tipo} = dominio: notificaciones | documentos | auditoria (o cualquier cola del proyecto con DLQ).
- */
+
 @Service
 public class DlqService {
 
@@ -51,12 +46,10 @@ public class DlqService {
     public record MensajeDlq(String messageId, int vecesRecibido, String cuerpo, Map<String, String> atributos) {
     }
 
-    /** Estado de las 3 DLQ del proyecto. */
     public List<ColaService.EstadoCola> listar() {
         return colas.listar().stream().filter(ColaService.EstadoCola::esDlq).toList();
     }
 
-    /** Muestra hasta 10 mensajes sin sacarlos de la DLQ (visibilidad 0). */
     public List<MensajeDlq> verMensajes(String tipo, int max) {
         String dlqUrl = colas.url(nombreDlq(tipo));
         List<Message> mensajes = sqs.receiveMessage(ReceiveMessageRequest.builder()
@@ -67,19 +60,16 @@ public class DlqService {
                 .messageSystemAttributeNames(MessageSystemAttributeName.APPROXIMATE_RECEIVE_COUNT)
                 .messageAttributeNames("All")
                 .build()).messages();
-        return mensajes.stream().map(m -> {
+        Map<String, MensajeDlq> unicos = new LinkedHashMap<>();
+        for (Message m : mensajes) {
             Map<String, String> atributos = new LinkedHashMap<>();
             m.messageAttributes().forEach((k, v) -> atributos.put(k, v.stringValue()));
             String veces = m.attributes().getOrDefault(MessageSystemAttributeName.APPROXIMATE_RECEIVE_COUNT, "0");
-            return new MensajeDlq(m.messageId(), Integer.parseInt(veces), m.body(), atributos);
-        }).toList();
+            unicos.put(m.messageId(), new MensajeDlq(m.messageId(), Integer.parseInt(veces), m.body(), atributos));
+        }
+        return List.copyOf(unicos.values());
     }
 
-    /**
-     * Devuelve los mensajes de la DLQ a su cola origen con StartMessageMoveTask
-     * (1 msg/s, controlado). Los consumidores son idempotentes por eventId,
-     * asi que reprocesar no duplica efectos.
-     */
     public Map<String, String> reprocesar(String tipo, Confirmacion solicitud) {
         String dlq = nombreDlq(tipo);
         String origen = nombres.colaOrigenDeDlq(dlq);
@@ -107,7 +97,6 @@ public class DlqService {
                 .toList();
     }
 
-    /** Borra definitivamente todos los mensajes de una DLQ. Solo DLQ, con confirmacion escrita. */
     public Map<String, String> purgar(String tipo, Confirmacion solicitud) {
         if (!props.permitirPurga()) {
             throw new IllegalArgumentException("La purga esta deshabilitada (PERMITIR_PURGA_DLQ=false)");
