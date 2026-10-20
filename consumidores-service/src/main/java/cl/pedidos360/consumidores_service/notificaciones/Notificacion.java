@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 
 import java.time.Instant;
 
+/** Notificacion enviada al cliente (canal simulado: se registra y se escribe en el log). */
 @Entity
 @Table(name = "notificaciones")
 public class Notificacion {

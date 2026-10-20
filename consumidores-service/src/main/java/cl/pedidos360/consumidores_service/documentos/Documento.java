@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 
 import java.time.Instant;
 
+/** Comprobante generado para un pedido. */
 @Entity
 @Table(name = "documentos")
 public class Documento {

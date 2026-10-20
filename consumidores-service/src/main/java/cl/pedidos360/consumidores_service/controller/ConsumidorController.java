@@ -14,7 +14,10 @@ import org.springframework.web.server.ResponseStatusException;
 import java.util.List;
 import java.util.Locale;
 
-
+/**
+ * Operacion de los consumidores de ESTA instancia. Requiere grupo ADMIN (ver SecurityConfig).
+ * mensajeria-admin-service usa estos endpoints para pausar/reanudar.
+ */
 @RestController
 @RequestMapping("/api/consumidores")
 public class ConsumidorController {
@@ -56,6 +59,7 @@ public class ConsumidorController {
         return c.estado();
     }
 
+    /** Solo demo. tipo = NINGUNO | RECUPERABLE | DEFINITIVO */
     @PostMapping("/{dominio}/simular-fallo")
     public ConsumidorSqs.EstadoConsumidor simularFallo(@PathVariable String dominio,
                                                        @RequestParam(defaultValue = "NINGUNO") String tipo) {

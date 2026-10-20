@@ -12,6 +12,8 @@ public class SqsConfiguration {
     @Bean(destroyMethod = "close")
     @ConditionalOnProperty(name = "app.consumidores.enabled", havingValue = "true")
     public SqsClient sqsClient(ConsumidoresProperties props) {
+        // Credenciales desde el perfil de instancia EC2 (LabInstanceProfile en Learner Lab)
+        // o la cadena estandar del SDK. Nunca claves en el repositorio.
         return SqsClient.builder().region(Region.of(props.awsRegion())).build();
     }
 }

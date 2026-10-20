@@ -17,12 +17,26 @@ Las tablas se crean en el esquema `mensajeria` de la misma RDS.
 comun/
   evento/        EventoMensaje (JSON -> objeto), ProcesadorEvento (interfaz de cada dominio)
   errores/       ErrorRecuperableException, ErrorDefinitivoException
-  sqs/           ConsumidorSqs (bucle, ACK, reintento, DLQ), RegistroConsumidores, SqsConfiguration, ConsumidoresProperties
+  sqs/           @EscuchaSqs, ConsumidorSqs (bucle, ACK, reintento, DLQ), RegistroConsumidores, SqsConfiguration, ConsumidoresProperties
   idempotencia/  EventoProcesado, EventoProcesadoRepository, TransaccionConsumo
   fallos/        RegistroFallo, RegistroFalloRepository, SimuladorFallos
 ```
 
 ## Cómo funciona (requisitos de la pauta)
+
+**Consumidores declarados con anotación (equivalente a `@SqsListener`).** Cada dominio es una clase con solo lógica de negocio, marcada así:
+
+```java
+@EscuchaSqs(dominio = "notificaciones")
+public class NotificacionProcesador implements ProcesadorEvento {
+    public void procesar(EventoMensaje evento) { ... }
+}
+```
+
+Al arrancar, `RegistroConsumidores` busca los beans con `@EscuchaSqs` y conecta cada uno a la cola `app.consumidores.colas.<dominio>` de `application.properties`. La clase anotada no toca el SDK de AWS; el ACK, los reintentos y la DLQ los maneja `ConsumidorSqs` (`comun/sqs`).
+
+Se usa una anotación propia en vez de `@SqsListener` de Spring Cloud AWS porque el proyecto usa Spring Boot 4.1, y el ACK explícito queda visible en el código (`DeleteMessage`).
+
 
 **ACK explícito.** Se usa el AWS SDK 2 con `ReceiveMessage` y long polling de 20 s. El mensaje solo se borra (`DeleteMessage`, el ACK) **después** del commit en PostgreSQL.
 

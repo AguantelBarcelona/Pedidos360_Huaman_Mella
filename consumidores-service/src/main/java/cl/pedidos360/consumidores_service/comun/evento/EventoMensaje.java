@@ -6,7 +6,11 @@ import tools.jackson.core.JacksonException;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
-
+/**
+ * Evento de negocio leido desde SQS. Corresponde al JSON que publica
+ * pedidos-service (EventoOutboxService): eventId, eventType, pedidoId,
+ * productoId, cantidad, clienteEmail, origen, fechaEvento.
+ */
 public record EventoMensaje(
         String eventId,
         String eventType,
@@ -19,8 +23,8 @@ public record EventoMensaje(
         String payload) {
 
     /**
-     * @param cuerpo          
-     * @param eventTypeAtributo 
+     * @param cuerpo          body del mensaje SQS
+     * @param eventTypeAtributo atributo SQS eventType (puede ser null)
      */
     public static EventoMensaje desdeJson(String cuerpo, String eventTypeAtributo, JsonMapper json) {
         if (cuerpo == null || cuerpo.isBlank()) {
@@ -36,7 +40,8 @@ public record EventoMensaje(
             throw new ErrorDefinitivoException("El mensaje no es un objeto JSON");
         }
 
-       
+        // Si la suscripcion no usa RawMessageDelivery, SNS envuelve el evento
+        // en {"Type":"Notification","Message":"<json>"}. Se soportan ambos casos.
         if ("Notification".equals(texto(raiz, "Type")) && raiz.hasNonNull("Message")) {
             return desdeJson(raiz.get("Message").asString(), eventTypeAtributo, json);
         }

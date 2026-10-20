@@ -5,6 +5,10 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * Configuracion de mensajeria separada del codigo de negocio.
+ * Todo se entrega por variables de entorno (ver application.properties y .env.example).
+ */
 @ConfigurationProperties(prefix = "app.consumidores")
 public record ConsumidoresProperties(
         boolean enabled,

@@ -3,11 +3,12 @@ package cl.pedidos360.consumidores_service.notificaciones;
 import cl.pedidos360.consumidores_service.comun.errores.ErrorDefinitivoException;
 import cl.pedidos360.consumidores_service.comun.evento.EventoMensaje;
 import cl.pedidos360.consumidores_service.comun.evento.ProcesadorEvento;
+import cl.pedidos360.consumidores_service.comun.sqs.EscuchaSqs;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.stereotype.Component;
 
-@Component
+/** Dominio notificaciones: avisa al cliente cuando su pedido se crea o se cancela. */
+@EscuchaSqs(dominio = "notificaciones")
 public class NotificacionProcesador implements ProcesadorEvento {
 
     private static final Logger log = LoggerFactory.getLogger(NotificacionProcesador.class);
@@ -15,11 +16,6 @@ public class NotificacionProcesador implements ProcesadorEvento {
 
     public NotificacionProcesador(NotificacionRepository repository) {
         this.repository = repository;
-    }
-
-    @Override
-    public String dominio() {
-        return "notificaciones";
     }
 
     @Override

@@ -8,6 +8,7 @@ import cl.pedidos360.consumidores_service.comun.idempotencia.TransaccionConsumo;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.context.ApplicationContext;
 import org.springframework.context.SmartLifecycle;
 import org.springframework.stereotype.Component;
 import software.amazon.awssdk.services.sqs.SqsClient;
@@ -15,19 +16,20 @@ import tools.jackson.databind.json.JsonMapper;
 
 import java.util.Collection;
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
 /**
- * {@link ConsumidorSqs} 
+ * Busca los beans anotados con {@link EscuchaSqs}, crea un {@link ConsumidorSqs}
+ * por cada dominio activo y lo arranca/detiene junto con la aplicacion
+ * (apagado ordenado incluido).
  */
 @Component
 public class RegistroConsumidores implements SmartLifecycle {
 
     private static final Logger log = LoggerFactory.getLogger(RegistroConsumidores.class);
 
-    private final List<ProcesadorEvento> procesadores;
+    private final ApplicationContext contexto;
     private final ConsumidoresProperties props;
     private final ObjectProvider<SqsClient> sqs;
     private final JsonMapper json;
@@ -38,11 +40,11 @@ public class RegistroConsumidores implements SmartLifecycle {
     private final Map<String, ConsumidorSqs> consumidores = new LinkedHashMap<>();
     private volatile boolean corriendo;
 
-    public RegistroConsumidores(List<ProcesadorEvento> procesadores, ConsumidoresProperties props,
+    public RegistroConsumidores(ApplicationContext contexto, ConsumidoresProperties props,
                                 ObjectProvider<SqsClient> sqs, JsonMapper json,
                                 TransaccionConsumo transaccion, RegistroFalloRepository fallos,
                                 SimuladorFallos simulador) {
-        this.procesadores = procesadores;
+        this.contexto = contexto;
         this.props = props;
         this.sqs = sqs;
         this.json = json;
@@ -59,7 +61,11 @@ public class RegistroConsumidores implements SmartLifecycle {
             return;
         }
         SqsClient cliente = sqs.getObject();
-        for (ProcesadorEvento procesador : procesadores) {
+        for (Map.Entry<String, Object> bean : contexto.getBeansWithAnnotation(EscuchaSqs.class).entrySet()) {
+            if (!(bean.getValue() instanceof ProcesadorEvento procesador)) {
+                throw new IllegalStateException("El bean '" + bean.getKey()
+                        + "' tiene @EscuchaSqs pero no implementa ProcesadorEvento");
+            }
             String dominio = procesador.dominio();
             if (!props.activos().contains(dominio)) {
                 log.info("consumidor={} no activo en esta instancia (CONSUMIDORES_ACTIVOS)", dominio);

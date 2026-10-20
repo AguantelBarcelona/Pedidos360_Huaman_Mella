@@ -43,6 +43,7 @@ public class SecurityConfig {
             .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
             .requestMatchers("/health").permitAll()
+            // Toda la API de este servicio es operativa/administrativa: solo grupo ADMIN de Cognito
             .anyRequest().hasRole("ADMIN"))
             .oauth2ResourceServer(oauth -> oauth
                 .jwt(jwt -> jwt

@@ -3,11 +3,12 @@ package cl.pedidos360.consumidores_service.documentos;
 import cl.pedidos360.consumidores_service.comun.errores.ErrorDefinitivoException;
 import cl.pedidos360.consumidores_service.comun.evento.EventoMensaje;
 import cl.pedidos360.consumidores_service.comun.evento.ProcesadorEvento;
+import cl.pedidos360.consumidores_service.comun.sqs.EscuchaSqs;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.stereotype.Component;
 
-@Component
+/** Dominio documentos: genera el comprobante de cada pedido creado. */
+@EscuchaSqs(dominio = "documentos")
 public class DocumentoProcesador implements ProcesadorEvento {
 
     private static final Logger log = LoggerFactory.getLogger(DocumentoProcesador.class);
@@ -15,11 +16,6 @@ public class DocumentoProcesador implements ProcesadorEvento {
 
     public DocumentoProcesador(DocumentoRepository repository) {
         this.repository = repository;
-    }
-
-    @Override
-    public String dominio() {
-        return "documentos";
     }
 
     @Override
