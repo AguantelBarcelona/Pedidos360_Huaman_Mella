@@ -7,11 +7,7 @@ import jakarta.persistence.Table;
 
 import java.time.Instant;
 
-/**
- * Registro de idempotencia: un evento se procesa una sola vez POR DOMINIO.
- * La clave primaria (dominio:eventId) impide que dos instancias, o una
- * re-entrega de SQS, ejecuten dos veces el mismo efecto de negocio.
- */
+
 @Entity
 @Table(name = "eventos_procesados")
 public class EventoProcesado {

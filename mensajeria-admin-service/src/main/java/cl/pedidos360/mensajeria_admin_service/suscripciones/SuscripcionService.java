@@ -41,7 +41,6 @@ public class SuscripcionService {
         this.json = json;
     }
 
-    /** eventTypes vacio o null = la cola recibe todos los eventos del topico (sin filtro). */
     public record CrearSuscripcionRequest(String topicArn, String cola, List<String> eventTypes) {
     }
 
@@ -70,10 +69,8 @@ public class SuscripcionService {
         String colaUrl = colas.url(cola);
         String colaArn = colas.arn(colaUrl);
 
-        // 1) La cola debe permitir que ESTE topico le envie mensajes
         permitirTopico(colaUrl, colaArn, req.topicArn());
 
-        // 2) Suscripcion con entrega raw y filtro por atributo eventType
         SubscribeRequest.Builder sub = SubscribeRequest.builder()
                 .topicArn(req.topicArn())
                 .protocol("sqs")
@@ -114,7 +111,6 @@ public class SuscripcionService {
         return json.writeValueAsString(raiz);
     }
 
-    /** Agrega (sin borrar las existentes) una declaracion a la politica de la cola. */
     void permitirTopico(String colaUrl, String colaArn, String topicArn) {
         String actual = sqs.getQueueAttributes(GetQueueAttributesRequest.builder()
                 .queueUrl(colaUrl).attributeNames(QueueAttributeName.POLICY).build())
@@ -138,7 +134,7 @@ public class SuscripcionService {
         }
         for (JsonNode s : statements) {
             if (s.toString().contains(topicArn) && s.toString().contains(colaArn)) {
-                return; // ya permitido
+                return; 
             }
         }
         ObjectNode st = statements.addObject();

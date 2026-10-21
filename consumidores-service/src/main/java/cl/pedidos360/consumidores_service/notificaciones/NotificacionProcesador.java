@@ -7,7 +7,6 @@ import cl.pedidos360.consumidores_service.comun.sqs.EscuchaSqs;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/** Dominio notificaciones: avisa al cliente cuando su pedido se crea o se cancela. */
 @EscuchaSqs(dominio = "notificaciones")
 public class NotificacionProcesador implements ProcesadorEvento {
 

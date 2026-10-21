@@ -7,7 +7,6 @@ import software.amazon.awssdk.services.cloudwatch.CloudWatchClient;
 import software.amazon.awssdk.services.sns.SnsClient;
 import software.amazon.awssdk.services.sqs.SqsClient;
 
-/** Credenciales: perfil de instancia EC2 (LabInstanceProfile) o cadena estandar del SDK. */
 @Configuration
 public class AwsConfiguration {
 

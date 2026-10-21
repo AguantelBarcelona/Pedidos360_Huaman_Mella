@@ -7,7 +7,6 @@ import cl.pedidos360.consumidores_service.comun.sqs.EscuchaSqs;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/** Dominio documentos: genera el comprobante de cada pedido creado. */
 @EscuchaSqs(dominio = "documentos")
 public class DocumentoProcesador implements ProcesadorEvento {
 

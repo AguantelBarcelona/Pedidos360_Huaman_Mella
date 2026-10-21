@@ -10,8 +10,7 @@ import java.util.List;
 
 public interface EventoOutboxRepository extends JpaRepository<EventoOutbox, String> {
 
-    // Bloquea los eventos pendientes durante el envio para evitar publicaciones
-    // simultaneas del mismo registro entre dos instancias del publicador.
+    // Bloquea los eventos pendientes durante el envio para evitar publicaciones duplicadas en caso de que existan multiples instancias del servicio de pedidos.
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select e from EventoOutbox e where e.estado = 'PENDIENTE' order by e.creadoEn asc")
     List<EventoOutbox> pendientesParaPublicar(Pageable limite);

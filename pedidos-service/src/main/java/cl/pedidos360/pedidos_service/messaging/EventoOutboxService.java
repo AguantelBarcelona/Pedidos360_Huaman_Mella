@@ -25,8 +25,7 @@ public class EventoOutboxService {
         this.habilitado = habilitado;
     }
 
-    // Invocado dentro de @Transactional de PedidoService.crear(): si falla
-    // la insercion del evento, se revierte tambien la insercion del pedido.
+    
     public void registrarPedidoCreado(Pedido pedido) {
         if (!habilitado) {
             return;

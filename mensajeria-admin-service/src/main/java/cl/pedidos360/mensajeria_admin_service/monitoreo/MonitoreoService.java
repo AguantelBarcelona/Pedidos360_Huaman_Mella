@@ -19,11 +19,9 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-/** Metricas SQS (namespace AWS/SQS) y estado de las alarmas del proyecto. */
 @Service
 public class MonitoreoService {
 
-    /** metrica -> estadistica recomendada por AWS para cada una */
     static final Map<String, String> METRICAS = new LinkedHashMap<>();
 
     static {

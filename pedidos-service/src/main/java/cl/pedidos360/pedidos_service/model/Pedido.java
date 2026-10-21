@@ -22,9 +22,6 @@ public class Pedido {
     @Column(nullable = false)
     private String clienteEmail;
 
-    // Identificador único del usuario autenticado en Cognito.
-    // Se obtiene desde el claim "sub" del JWT.
-    // Se mantiene nullable para no afectar pedidos antiguos.
     @Column
     private String clienteSub;
 

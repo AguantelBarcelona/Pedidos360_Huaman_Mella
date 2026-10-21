@@ -19,17 +19,11 @@ public class InventarioController {
         this.inventarioService = inventarioService;
     }
 
-    /**
-     * Obtiene todo el inventario registrado.
-     */
     @GetMapping
     public ResponseEntity<List<Inventario>> listar() {
         return ResponseEntity.ok(inventarioService.listarTodos());
     }
 
-    /**
-     * Obtiene el inventario asociado a un producto.
-     */
     @GetMapping("/producto/{productoId}")
     public ResponseEntity<Inventario> obtenerPorProducto(
             @PathVariable Long productoId) {
@@ -39,9 +33,6 @@ public class InventarioController {
         );
     }
 
-    /**
-     * Crea un nuevo registro de inventario.
-     */
     @PostMapping
     public ResponseEntity<Inventario> crear(
             @Valid @RequestBody Inventario inventario) {
@@ -59,12 +50,6 @@ public class InventarioController {
                 .body(nuevoInventario);
     }
 
-    /**
-     * Actualiza el stock disponible de un producto.
-     *
-     * Ejemplo:
-     * PUT /api/inventario/producto/1?stock=20
-     */
     @PutMapping("/producto/{productoId}")
     public ResponseEntity<Inventario> actualizarStock(
             @PathVariable Long productoId,
@@ -78,12 +63,6 @@ public class InventarioController {
         );
     }
 
-    /**
-     * Reserva una cantidad de stock.
-     *
-     * Ejemplo:
-     * POST /api/inventario/producto/1/reservar?cantidad=2
-     */
     @PostMapping("/producto/{productoId}/reservar")
     public ResponseEntity<Inventario> reservarStock(
             @PathVariable Long productoId,
@@ -97,12 +76,6 @@ public class InventarioController {
         );
     }
 
-    /**
-     * Libera una cantidad previamente reservada.
-     *
-     * Ejemplo:
-     * POST /api/inventario/producto/1/liberar?cantidad=2
-     */
     @PostMapping("/producto/{productoId}/liberar")
     public ResponseEntity<Inventario> liberarStock(
             @PathVariable Long productoId,

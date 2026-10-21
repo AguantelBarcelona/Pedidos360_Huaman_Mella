@@ -23,10 +23,7 @@ public class ColaService {
         this.auditoria = auditoria;
     }
 
-    /**
-     * Valores por defecto = politicas documentadas del proyecto:
-     * origen 4 dias / visibilidad 120 s / long polling 20 s; DLQ 14 dias; maxReceiveCount 3.
-     */
+    /** origen 4 dias / visibilidad 120 s / long polling 20 s; DLQ 14 dias; maxReceiveCount 3.*/
     public record CrearColaRequest(String nombre, Boolean conDlq, Integer maxReceiveCount,
                                    Integer visibilidadSegundos, Integer retencionSegundos) {
     }
@@ -78,7 +75,7 @@ public class ColaService {
             String dlqUrl = sqs.createQueue(CreateQueueRequest.builder()
                     .queueName(nombre + NombresRecursos.SUFIJO_DLQ)
                     .attributesWithStrings(Map.of(
-                            // La DLQ retiene 14 dias: mas que el origen, para alcanzar a diagnosticar
+                            // La DLQ retiene 14 dias
                             "MessageRetentionPeriod", "1209600",
                             "SqsManagedSseEnabled", "true"))
                     .build()).queueUrl();
@@ -95,7 +92,7 @@ public class ColaService {
         return estadoPorUrl(url);
     }
 
-    /** Elimina la cola; con incluirDlq=true elimina tambien su DLQ. */
+    /** Elimina la cola y tambien su DLQ. */
     public void eliminar(String nombre, String confirmar, boolean incluirDlq) {
         String completo = nombres.normalizar(nombre);
         nombres.exigirConfirmacion(completo, confirmar);
@@ -107,7 +104,6 @@ public class ColaService {
                 sqs.deleteQueue(DeleteQueueRequest.builder().queueUrl(url(dlq)).build());
                 auditoria.registrar("ELIMINAR_COLA", dlq, "dlq asociada");
             } catch (QueueDoesNotExistException e) {
-                // no tenia DLQ
             }
         }
     }
@@ -139,7 +135,6 @@ public class ColaService {
         return v == null ? 0 : Long.parseLong(v);
     }
 
-    /** Lee un campo de un JSON plano simple como la RedrivePolicy (numero o string). */
     static String extraer(String json, String campo) {
         int i = json.indexOf("\"" + campo + "\"");
         if (i < 0) return null;

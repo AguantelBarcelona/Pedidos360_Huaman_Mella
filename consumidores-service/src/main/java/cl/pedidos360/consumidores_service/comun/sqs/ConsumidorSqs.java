@@ -29,19 +29,7 @@ import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
-/**
- * Consumidor SQS de un dominio, con ACK explicito.
- *
- * <ul>
- *   <li>Exito o duplicado: DeleteMessage (= ACK). Solo se confirma despues de hacer commit.</li>
- *   <li>Error recuperable: NO hay ACK. Se acorta la visibilidad (backoff) para reintentar;
- *       cuando ApproximateReceiveCount supera maxReceiveCount, la RedrivePolicy lo mueve a la DLQ.</li>
- *   <li>Error definitivo: se envia una copia a la DLQ con el motivo y luego se hace ACK del original.</li>
- * </ul>
- *
- * Varias instancias pueden leer la misma cola: SQS oculta cada mensaje mientras una
- * instancia lo procesa (VisibilityTimeout) y la tabla eventos_procesados evita repetir efectos.
- */
+
 public class ConsumidorSqs {
 
     private static final Logger log = LoggerFactory.getLogger(ConsumidorSqs.class);
@@ -83,7 +71,6 @@ public class ConsumidorSqs {
         this.props = props;
     }
 
-    // ------------------------------------------------------------------ ciclo de vida
 
     public synchronized void iniciar() {
         if (ejecutando.getAndSet(true)) {
@@ -106,12 +93,9 @@ public class ConsumidorSqs {
                 Thread.currentThread().interrupt();
             }
         }
-        // Mensajes recibidos y no confirmados vuelven a ser visibles al vencer
-        // su VisibilityTimeout: otra instancia los procesara. No se pierden.
         log.info("consumidor={} instancia={} DETENIDO", dominio, props.instancia());
     }
 
-    /** Deja de pedir mensajes a SQS. No purga ni borra nada: la cola los conserva. */
     public void pausar() {
         if (!pausado.getAndSet(true)) {
             log.info("consumidor={} instancia={} PAUSADO", dominio, props.instancia());
@@ -134,7 +118,7 @@ public class ConsumidorSqs {
                 recibirYProcesar();
             } catch (RuntimeException e) {
                 if (!ejecutando.get()) {
-                    break; // interrupcion por apagado
+                    break; 
                 }
                 ultimoError = Instant.now() + " " + e.getMessage();
                 log.error("consumidor={} instancia={} error leyendo cola: {}", dominio, props.instancia(), e.getMessage());
@@ -143,7 +127,6 @@ public class ConsumidorSqs {
         }
     }
 
-    /** Un ciclo de long polling. Visible para pruebas. */
     int recibirYProcesar() {
         List<Message> mensajes = sqs.receiveMessage(ReceiveMessageRequest.builder()
                 .queueUrl(colaUrl)
@@ -159,8 +142,6 @@ public class ConsumidorSqs {
         return mensajes.size();
     }
 
-    // ------------------------------------------------------------------ procesamiento
-
     void procesarMensaje(Message mensaje) {
         ultimoMensaje = Instant.now();
         int intento = intento(mensaje);
@@ -175,7 +156,6 @@ public class ConsumidorSqs {
             try {
                 nuevo = transaccion.procesarUnaVez(procesador, evento, mensaje.messageId(), props.instancia(), intento);
             } catch (DataIntegrityViolationException carrera) {
-                // Otra instancia confirmo el mismo eventId en paralelo: es un duplicado.
                 if (!transaccion.yaProcesado(dominio, evento.eventId())) {
                     throw new ErrorRecuperableException("Error de integridad en BD: " + carrera.getMostSpecificCause().getMessage(), carrera);
                 }
@@ -197,7 +177,6 @@ public class ConsumidorSqs {
         } catch (ErrorRecuperableException e) {
             manejarRecuperable(mensaje, eventId, intento, e.getMessage());
         } catch (RuntimeException e) {
-            // Falla no clasificada (BD caida, red...): se asume temporal.
             manejarRecuperable(mensaje, eventId, intento, e.getClass().getSimpleName() + ": " + e.getMessage());
         }
     }
@@ -221,7 +200,6 @@ public class ConsumidorSqs {
                     .visibilityTimeout(espera)
                     .build());
         } catch (RuntimeException e) {
-            // Si falla, el mensaje igual reaparece al vencer el VisibilityTimeout de la cola (120 s).
             log.debug("No se pudo ajustar visibilidad: {}", e.getMessage());
         }
     }
@@ -243,7 +221,7 @@ public class ConsumidorSqs {
                     .messageBody(mensaje.body())
                     .messageAttributes(atributos)
                     .build());
-            ack(mensaje); // solo despues de asegurar la copia en la DLQ
+            ack(mensaje); 
             enviadosDlq.incrementAndGet();
 
             String accion = "ENVIADO_A_DLQ + ACK";
@@ -271,7 +249,6 @@ public class ConsumidorSqs {
         }
     }
 
-    // ------------------------------------------------------------------ utilidades
 
     static int intento(Message mensaje) {
         String valor = mensaje.attributes().get(MessageSystemAttributeName.APPROXIMATE_RECEIVE_COUNT);
@@ -299,8 +276,6 @@ public class ConsumidorSqs {
             ejecutando.set(false);
         }
     }
-
-    // ------------------------------------------------------------------ estado
 
     public String dominio() { return dominio; }
 

@@ -56,18 +56,14 @@ public class PedidoService {
 
         Pedido pedido = new Pedido();
 
-        // Datos proporcionados por la solicitud.
         pedido.setClienteEmail(request.clienteEmail());
         pedido.setProductoId(request.productoId());
         pedido.setCantidad(request.cantidad());
 
-        // La identidad real del propietario proviene del JWT.
         pedido.setClienteSub(clienteSub);
-
-        // El estado inicial lo define el backend.
+        
         pedido.setEstado("CREADO");
 
-        // Consultar productos-service para obtener el precio oficial.
         ProductoResponse producto =
                 productoClient.obtenerProducto(
                         request.productoId()
@@ -75,14 +71,11 @@ public class PedidoService {
 
         pedido.setPrecioUnitario(producto.precio());
 
-        // Reservar stock antes de guardar el pedido.
         inventarioClient.reservarStock(
                 request.productoId(),
                 request.cantidad()
         );
 
-        // El pedido y su evento pendiente se guardan en una sola transaccion PostgreSQL.
-        // El publicador asincrono enviara el evento a SNS mas adelante.
         Pedido guardado = pedidoRepository.save(pedido);
         eventoOutboxService.registrarPedidoCreado(guardado);
         return guardado;
@@ -92,7 +85,6 @@ public class PedidoService {
 
         Pedido existente = buscarPorId(id);
 
-        // Consultar nuevamente el precio oficial del producto.
         ProductoResponse producto =
                 productoClient.obtenerProducto(
                         datos.getProductoId()

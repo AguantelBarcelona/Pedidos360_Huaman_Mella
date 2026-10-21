@@ -4,7 +4,6 @@ import jakarta.persistence.*;
 
 import java.time.Instant;
 
-/** Traza inmutable de todo evento de negocio publicado en el sistema. */
 @Entity
 @Table(name = "registros_auditoria")
 public class RegistroAuditoria {

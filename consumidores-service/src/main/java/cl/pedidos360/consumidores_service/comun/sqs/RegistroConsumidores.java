@@ -19,11 +19,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
 
-/**
- * Busca los beans anotados con {@link EscuchaSqs}, crea un {@link ConsumidorSqs}
- * por cada dominio activo y lo arranca/detiene junto con la aplicacion
- * (apagado ordenado incluido).
- */
+
 @Component
 public class RegistroConsumidores implements SmartLifecycle {
 

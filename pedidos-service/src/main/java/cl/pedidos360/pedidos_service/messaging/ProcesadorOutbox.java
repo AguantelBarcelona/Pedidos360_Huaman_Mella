@@ -23,8 +23,6 @@ public class ProcesadorOutbox {
     @Transactional
     @Scheduled(fixedDelayString = "${app.messaging.poll-delay-ms:10000}")
     public void publicarPendientes() {
-        // @Lock(PESSIMISTIC_WRITE) mantiene cada registro bloqueado durante
-        // la publicacion. Un fallo de red NO debe hacer rollback del intento.
         for (EventoOutbox evento : repository.pendientesParaPublicar(PageRequest.of(0, 10))) {
             try {
                 String snsMessageId = publicador.publicar(evento);

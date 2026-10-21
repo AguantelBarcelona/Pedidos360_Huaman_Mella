@@ -15,14 +15,13 @@ public class ConsumidoresController {
         this.service = service;
     }
 
-    /** Estado de cada instancia de consumidores-service configurada. */
+    /** Estado de cada instancia de consumidores-service. */
     @GetMapping
     public List<ConsumidoresRemotosService.RespuestaInstancia> estado(
             @RequestHeader(HttpHeaders.AUTHORIZATION) String authorization) {
         return service.estado(authorization);
     }
 
-    /** POST /api/admin/consumidores/documentos/pausar[?instancia=http://localhost:8085] */
     @PostMapping("/{dominio}/{accion}")
     public List<ConsumidoresRemotosService.RespuestaInstancia> accion(
             @PathVariable String dominio,

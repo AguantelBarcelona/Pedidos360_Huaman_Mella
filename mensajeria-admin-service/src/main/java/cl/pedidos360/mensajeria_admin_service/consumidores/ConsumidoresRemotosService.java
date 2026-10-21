@@ -11,10 +11,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
-/**
- * Pausa/reanuda los consumidores llamando a cada instancia de consumidores-service.
- * Se reenvia el mismo token ADMIN del usuario: el consumidor vuelve a validarlo.
- */
 @Service
 public class ConsumidoresRemotosService {
 
@@ -78,7 +74,6 @@ public class ConsumidoresRemotosService {
                     .body(Object.class);
             return new RespuestaInstancia(base, true, cuerpo, null);
         } catch (RuntimeException e) {
-            // Una instancia caida no impide operar sobre las demas
             return new RespuestaInstancia(base, false, null, e.getMessage());
         }
     }

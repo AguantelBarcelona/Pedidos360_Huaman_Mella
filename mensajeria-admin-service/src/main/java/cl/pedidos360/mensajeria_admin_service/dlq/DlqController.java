@@ -22,14 +22,13 @@ public class DlqController {
         return service.listar();
     }
 
-    /** GET /api/admin/dlq/notificaciones/mensajes?max=5 */
     @GetMapping("/{tipo}/mensajes")
     public List<DlqService.MensajeDlq> mensajes(@PathVariable String tipo,
                                                 @RequestParam(defaultValue = "5") int max) {
         return service.verMensajes(tipo, max);
     }
 
-    /** Body: {"confirmacion":"REPROCESAR pedidos360-notificaciones-dlq"} */
+     
     @PostMapping("/{tipo}/reprocesar")
     @ResponseStatus(HttpStatus.ACCEPTED)
     public Map<String, String> reprocesar(@PathVariable String tipo,
@@ -42,7 +41,6 @@ public class DlqController {
         return service.tareas(tipo);
     }
 
-    /** Body: {"confirmacion":"VACIAR pedidos360-notificaciones-dlq"} */
     @PostMapping("/{tipo}/purgar")
     @ResponseStatus(HttpStatus.ACCEPTED)
     public Map<String, String> purgar(@PathVariable String tipo,

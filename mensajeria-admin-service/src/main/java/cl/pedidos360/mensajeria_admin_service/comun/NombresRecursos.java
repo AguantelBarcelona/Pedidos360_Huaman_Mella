@@ -4,7 +4,6 @@ import org.springframework.stereotype.Component;
 
 import java.util.regex.Pattern;
 
-/** Valida nombres/ARN para que el administrador solo toque recursos del proyecto. */
 @Component
 public class NombresRecursos {
 
@@ -21,7 +20,6 @@ public class NombresRecursos {
         return prefijo;
     }
 
-    /** Acepta "pedidos360-x" o "x" (se le antepone el prefijo). */
     public String normalizar(String nombre) {
         if (nombre == null || !NOMBRE.matcher(nombre).matches()) {
             throw new IllegalArgumentException("Nombre invalido: solo letras, numeros, '-' y '_' (max 80)");
@@ -38,7 +36,6 @@ public class NombresRecursos {
             throw new IllegalArgumentException("ARN invalido");
         }
         String recurso = arn.substring(arn.lastIndexOf(':') + 1);
-        // En suscripciones el ARN es arn:...:topico:uuid -> revisar el penultimo segmento
         String[] partes = arn.split(":");
         boolean propio = recurso.startsWith(prefijo + "-")
                 || (partes.length >= 7 && partes[5].startsWith(prefijo + "-"));

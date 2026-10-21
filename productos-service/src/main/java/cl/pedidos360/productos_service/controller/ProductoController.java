@@ -19,25 +19,19 @@ public class ProductoController {
         this.productoService = productoService;
     }
 
-    /**
-     * Obtiene todos los productos disponibles en el catálogo.
-     */
+
     @GetMapping
     public ResponseEntity<List<Producto>> listar() {
         return ResponseEntity.ok(productoService.listarTodos());
     }
 
-    /**
-     * Obtiene un producto específico mediante su ID.
-     */
+
     @GetMapping("/{id}")
     public ResponseEntity<Producto> obtener(@PathVariable Long id) {
         return ResponseEntity.ok(productoService.buscarPorId(id));
     }
 
-    /**
-     * Filtra productos por marca.
-     */
+
     @GetMapping("/marca/{marca}")
     public ResponseEntity<List<Producto>> porMarca(
             @PathVariable String marca) {
@@ -47,9 +41,6 @@ public class ProductoController {
         );
     }
 
-    /**
-     * Filtra productos por categoría.
-     */
     @GetMapping("/categoria/{categoria}")
     public ResponseEntity<List<Producto>> porCategoria(
             @PathVariable String categoria) {
@@ -59,9 +50,6 @@ public class ProductoController {
         );
     }
 
-    /**
-     * Crea un nuevo producto.
-     */
     @PostMapping
     public ResponseEntity<Producto> crear(
             @Valid @RequestBody Producto producto) {
@@ -77,9 +65,6 @@ public class ProductoController {
                 .body(nuevoProducto);
     }
 
-    /**
-     * Actualiza completamente un producto existente.
-     */
     @PutMapping("/{id}")
     public ResponseEntity<Producto> actualizar(
             @PathVariable Long id,
@@ -90,9 +75,6 @@ public class ProductoController {
         );
     }
 
-    /**
-     * Elimina un producto existente.
-     */
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> eliminar(@PathVariable Long id) {
 

@@ -9,7 +9,6 @@ import jakarta.persistence.Table;
 
 import java.time.Instant;
 
-/** Bitacora persistente de cada fallo: ID, intento y causa (requisito de la pauta). */
 @Entity
 @Table(name = "registro_fallos")
 public class RegistroFallo {

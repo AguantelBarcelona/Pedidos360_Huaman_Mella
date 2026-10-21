@@ -15,8 +15,6 @@ public class SnsConfiguration {
     @Bean(destroyMethod = "close")
     @ConditionalOnProperty(name = "app.messaging.enabled", havingValue = "true")
     public SnsClient snsClient(@Value("${app.messaging.aws-region:us-east-1}") String region) {
-        // Credenciales desde EC2 Instance Profile o cadena estandar del SDK.
-        // Nunca almacenar claves en el proyecto ni en application.properties.
         return SnsClient.builder().region(Region.of(region)).build();
     }
 }

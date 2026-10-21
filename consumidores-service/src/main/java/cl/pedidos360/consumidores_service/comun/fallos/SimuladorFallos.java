@@ -8,11 +8,6 @@ import org.springframework.stereotype.Component;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-/**
- * Solo para la demostracion: permite forzar, en tiempo de ejecucion y por dominio,
- * un error recuperable (para ver reintentos + redrive a DLQ) o uno definitivo
- * (envio inmediato a DLQ). Se activa desde POST /api/consumidores/{dominio}/simular-fallo.
- */
 @Component
 public class SimuladorFallos {
 

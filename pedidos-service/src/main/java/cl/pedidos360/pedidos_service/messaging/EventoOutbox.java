@@ -6,7 +6,6 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import java.time.Instant;
 
-/** Un registro por evento de negocio, dentro de la transaccion del pedido. */
 @Entity
 @Table(name = "eventos_outbox", schema = "pedidos")
 public class EventoOutbox {

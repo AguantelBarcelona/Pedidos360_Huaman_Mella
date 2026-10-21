@@ -15,7 +15,7 @@ public class ColaController {
         this.service = service;
     }
 
-    /** Estado de todas las colas del proyecto (incluye DLQ). */
+    /** Estado de todas las colas del proyecto. */
     @GetMapping
     public List<ColaService.EstadoCola> listar() {
         return service.listar();
@@ -32,7 +32,6 @@ public class ColaController {
         return service.crear(request);
     }
 
-    /** DELETE /api/admin/colas/pedidos360-x?confirmar=pedidos360-x&incluirDlq=true */
     @DeleteMapping("/{nombre}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void eliminar(@PathVariable String nombre,

@@ -20,7 +20,6 @@ public class SuscripcionController {
         return service.listar(topicArn);
     }
 
-    /** Body: {"topicArn":"arn:...:pedidos360-eventos","cola":"pedidos360-x","eventTypes":["PEDIDO_CREADO"]} */
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public SuscripcionService.SuscripcionInfo crear(@RequestBody SuscripcionService.CrearSuscripcionRequest request) {

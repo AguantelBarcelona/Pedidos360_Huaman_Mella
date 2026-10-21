@@ -29,7 +29,6 @@ public class TopicoController {
         return service.crear(request.nombre());
     }
 
-    /** DELETE /api/admin/topicos?arn=...&confirmar=pedidos360-xxx */
     @DeleteMapping
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void eliminar(@RequestParam String arn, @RequestParam(required = false) String confirmar) {
