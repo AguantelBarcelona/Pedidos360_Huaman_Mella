@@ -2,7 +2,10 @@ package cl.pedidos360.inventario_service.service;
 
 import cl.pedidos360.inventario_service.model.Inventario;
 import cl.pedidos360.inventario_service.repository.InventarioRepository;
+import cl.pedidos360.inventario_service.kinesis.KinesisOutboxService;
+
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
@@ -10,11 +13,14 @@ import java.util.List;
 public class InventarioService {
 
     private final InventarioRepository inventarioRepository;
+    private final KinesisOutboxService kinesisOutboxService;
 
     public InventarioService(
-            InventarioRepository inventarioRepository) {
+            InventarioRepository inventarioRepository,
+            KinesisOutboxService kinesisOutboxService) {
 
         this.inventarioRepository = inventarioRepository;
+        this.kinesisOutboxService = kinesisOutboxService;
     }
 
     public List<Inventario> listarTodos() {
@@ -31,6 +37,7 @@ public class InventarioService {
                 );
     }
 
+    @Transactional
     public Inventario crear(Inventario inventario) {
 
         inventario.setId(null);
@@ -39,9 +46,17 @@ public class InventarioService {
             inventario.setStockReservado(0);
         }
 
-        return inventarioRepository.save(inventario);
+        Inventario guardado =
+                inventarioRepository.save(inventario);
+
+        // EV3 - Evento Kinesis
+        kinesisOutboxService.registrarCambio(
+                "INVENTARIO_CREADO", guardado);
+
+        return guardado;
     }
 
+    @Transactional
     public Inventario actualizarStock(
             Long productoId,
             Integer nuevoStock) {
@@ -51,9 +66,17 @@ public class InventarioService {
 
         inventario.setStockDisponible(nuevoStock);
 
-        return inventarioRepository.save(inventario);
+        Inventario guardado =
+                inventarioRepository.save(inventario);
+
+        // EV3 - Evento Kinesis
+        kinesisOutboxService.registrarCambio(
+                "STOCK_ACTUALIZADO", guardado);
+
+        return guardado;
     }
 
+    @Transactional
     public Inventario reservarStock(
             Long productoId,
             Integer cantidad) {
@@ -74,9 +97,17 @@ public class InventarioService {
                 inventario.getStockReservado() + cantidad
         );
 
-        return inventarioRepository.save(inventario);
+        Inventario guardado =
+                inventarioRepository.save(inventario);
+
+        // EV3 - Evento Kinesis
+        kinesisOutboxService.registrarCambio(
+                "STOCK_RESERVADO", guardado);
+
+        return guardado;
     }
 
+    @Transactional
     public Inventario liberarStock(
             Long productoId,
             Integer cantidad) {
@@ -98,6 +129,13 @@ public class InventarioService {
                 inventario.getStockDisponible() + cantidad
         );
 
-        return inventarioRepository.save(inventario);
+        Inventario guardado =
+                inventarioRepository.save(inventario);
+
+        // EV3 - Evento Kinesis
+        kinesisOutboxService.registrarCambio(
+                "STOCK_LIBERADO", guardado);
+
+        return guardado;
     }
 }
