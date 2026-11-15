@@ -1,0 +1,46 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >
+  Infraestructura Kinesis Data Streams para Pedidos360 EV3.
+
+Resources:
+
+  PedidosStream:
+    Type: AWS::Kinesis::Stream
+    Properties:
+      Name: pedidos360-pedidos-stream
+      StreamModeDetails:
+        StreamMode: PROVISIONED
+      ShardCount: 3
+      RetentionPeriodHours: 24
+
+  InventarioStream:
+    Type: AWS::Kinesis::Stream
+    Properties:
+      Name: pedidos360-inventario-stream
+      StreamModeDetails:
+        StreamMode: PROVISIONED
+      ShardCount: 3
+      RetentionPeriodHours: 24
+
+  EventosFallidosStream:
+    Type: AWS::Kinesis::Stream
+    Properties:
+      Name: pedidos360-eventos-fallidos
+      StreamModeDetails:
+        StreamMode: PROVISIONED
+      ShardCount: 1
+      RetentionPeriodHours: 24
+
+Outputs:
+
+  PedidosStreamName:
+    Description: Stream de eventos de pedidos
+    Value: !Ref PedidosStream
+
+  InventarioStreamName:
+    Description: Stream de eventos de inventario
+    Value: !Ref InventarioStream
+
+  EventosFallidosStreamName:
+    Description: Stream de eventos fallidos
+    Value: !Ref EventosFallidosStream
