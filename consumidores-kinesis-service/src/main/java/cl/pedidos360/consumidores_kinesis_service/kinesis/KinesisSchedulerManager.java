@@ -23,6 +23,7 @@ import software.amazon.kinesis.common.ConfigsBuilder;
 import software.amazon.kinesis.common.InitialPositionInStream;
 import software.amazon.kinesis.common.InitialPositionInStreamExtended;
 import software.amazon.kinesis.coordinator.Scheduler;
+import software.amazon.kinesis.leases.LeaseAssignmentStrategy;
 import software.amazon.kinesis.metrics.MetricsLevel;
 import software.amazon.kinesis.retrieval.polling.PollingConfig;
 
@@ -69,6 +70,8 @@ public class KinesisSchedulerManager implements ApplicationRunner {
 
     private MetricsLevel metricsLevel;
     private InitialPositionInStreamExtended posicionInicial;
+
+    private LeaseAssignmentStrategy estrategiaAsignacion;
 
     public KinesisSchedulerManager(
             Environment env,
@@ -150,6 +153,13 @@ public class KinesisSchedulerManager implements ApplicationRunner {
                 propiedad("metrics-level")
                         .toUpperCase(Locale.ROOT));
 
+        estrategiaAsignacion = LeaseAssignmentStrategy.valueOf(
+                env.getProperty(
+                        "app.kinesis.lease-assignment-strategy",
+                        "LEASE_COUNT_BASED"
+                ).trim().toUpperCase(Locale.ROOT)
+        );
+
         workerId = propiedad("worker-id")
                 + "-" + UUID.randomUUID();
 
@@ -204,9 +214,10 @@ public class KinesisSchedulerManager implements ApplicationRunner {
         iniciarScheduler(inventario, inventarioApp);
 
         log.info(
-                "KCL_WORKER_INICIADO worker={} region={} aplicaciones=3",
+                "KCL_WORKER_INICIADO worker={} region={} aplicaciones=3 estrategia={}",
                 workerId,
-                region.id()
+                region.id(),
+                estrategiaAsignacion
         );
     }
 
@@ -236,7 +247,8 @@ public class KinesisSchedulerManager implements ApplicationRunner {
         );
 
         var leases = configs.leaseManagementConfig()
-                .maxLeaseRenewalThreads(4);
+                .maxLeaseRenewalThreads(4)
+                .leaseAssignmentStrategy(estrategiaAsignacion);
 
         var retrieval = configs.retrievalConfig()
                 .retrievalSpecificConfig(
@@ -254,10 +266,11 @@ public class KinesisSchedulerManager implements ApplicationRunner {
                 );
 
         log.info(
-                "KCL_APLICACION_CONFIGURADA app={} stream={} worker={} modo=POLLING",
+                "KCL_APLICACION_CONFIGURADA app={} stream={} worker={} modo=POLLING estrategia={}",
                 aplicacion,
                 stream,
-                workerId
+                workerId,
+                estrategiaAsignacion
         );
 
         return new Scheduler(
@@ -276,16 +289,11 @@ public class KinesisSchedulerManager implements ApplicationRunner {
             String aplicacion) {
 
         Thread hilo = new Thread(() -> {
-
             try {
                 scheduler.run();
-
             } catch (Throwable ex) {
-
                 log.error("KCL_SCHEDULER_ERROR app={}", aplicacion, ex);
-
             } finally {
-
                 if (!cerrando.get()) {
                     solicitarReinicio();
                 }
@@ -341,10 +349,8 @@ public class KinesisSchedulerManager implements ApplicationRunner {
         List<Future<Boolean>> cierres = new ArrayList<>();
 
         for (Scheduler scheduler : schedulers) {
-
             try {
                 cierres.add(scheduler.startGracefulShutdown());
-
             } catch (Exception ex) {
                 log.warn("Error solicitando cierre KCL", ex);
             }
@@ -354,8 +360,8 @@ public class KinesisSchedulerManager implements ApplicationRunner {
                 + TimeUnit.SECONDS.toNanos(30);
 
         for (Future<Boolean> cierre : cierres) {
-
             try {
+
                 long restante = Math.max(
                         1L,
                         limite - System.nanoTime()
