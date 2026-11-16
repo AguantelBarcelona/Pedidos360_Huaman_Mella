@@ -259,3 +259,65 @@ debe considerar la memoria disponible de la instancia EC2.
 - El acceso de prueba se realiza mediante un túnel SSH.
 - Los tres streams principales están protegidos contra modificaciones.
 - La eliminación de streams requiere confirmación explícita.
+
+## 17. Justificación del diseño
+
+| Parámetro | Justificación |
+|---|---|
+| Capacidad PROVISIONED | Permite definir explícitamente la cantidad de shards y controlar la capacidad y los costos del laboratorio. |
+| Tres shards para pedidos | Permite distribuir el procesamiento de pedidos entre múltiples workers y demostrar balanceo. |
+| Tres shards para inventario | Permite procesar actualizaciones de diferentes productos de forma paralela. |
+| Un shard para eventos fallidos | Los eventos fallidos deberían representar una fracción del tráfico normal. |
+| Retención de 24 horas | Permite recuperar eventos después de interrupciones temporales, limitando el costo del laboratorio. |
+| Región us-east-1 | Mantiene Kinesis en la misma región de los demás servicios AWS del proyecto. |
+| Partition key por pedido o producto | Favorece el orden de los eventos relacionados con una misma entidad dentro de su shard. |
+| Aplicaciones KCL independientes | Permiten procesar el mismo flujo con responsabilidades y checkpoints separados. |
+
+La capacidad seleccionada corresponde al escenario académico.
+Un despliegue productivo requeriría dimensionamiento basado
+en métricas reales de tráfico, tamaño de eventos y retraso.
+
+Kinesis es un servicio gestionado por AWS. No requiere
+instalar brokers, nodos de coordinación ni contenedores
+para administrar el streaming.
+
+## 18. Flujo de procesamiento de eventos
+
+```mermaid
+flowchart TD
+    A[Productor] --> B[Outbox transaccional]
+    B --> C[Publicación en Kinesis]
+    C --> D[Consumidor KCL]
+    D --> E{Evento válido y procesado}
+    E -- Sí --> F[Persistencia idempotente]
+    F --> G[Checkpoint en DynamoDB]
+    E -- No --> H{Quedan intentos}
+    H -- Sí --> I[Backoff y reintento]
+    I --> D
+    H -- No --> J[Stream de eventos fallidos]
+    J --> K{Publicación confirmada}
+    K -- Sí --> G
+    K -- No --> L[Reinicio sin avanzar checkpoint]
+```
+
+Los eventos duplicados se reconocen mediante el identificador
+del evento y la aplicación consumidora, evitando repetir
+los efectos de negocio.
+
+## 19. Verificación final
+
+| Componente | Pruebas aprobadas |
+|---|---:|
+| pedidos-service | 12 |
+| productos-service | 12 |
+| inventario-service | 18 |
+| consumidores-service | 24 |
+| consumidores-kinesis-service | 10 |
+| mensajeria-admin-service | 33 |
+| Total | 109 |
+
+Todos los módulos finalizaron con BUILD SUCCESS,
+sin fallos ni errores en las pruebas.
+
+El frontend React compiló correctamente utilizando
+TypeScript y Vite.
