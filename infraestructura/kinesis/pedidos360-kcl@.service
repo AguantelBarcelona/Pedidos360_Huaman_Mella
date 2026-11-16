@@ -1,0 +1,25 @@
+[Unit]
+Description=Pedidos360 Consumidor Kinesis Worker %i
+After=network-online.target
+Wants=network-online.target
+StartLimitIntervalSec=300
+StartLimitBurst=3
+
+[Service]
+Type=simple
+User=ec2-user
+WorkingDirectory=/home/ec2-user/Pedidos360_Huaman_Mella/consumidores-kinesis-service
+EnvironmentFile=/etc/pedidos360.env
+EnvironmentFile=/etc/pedidos360-kinesis.env
+Environment=KINESIS_CONSUMERS_ENABLED=true
+Environment=KINESIS_WORKER_ID=worker-%i
+Environment=KINESIS_FALLIDOS_STREAM=pedidos360-eventos-fallidos
+Environment=KINESIS_INITIAL_POSITION=TRIM_HORIZON
+ExecStart=/usr/bin/java -Xms48m -Xmx192m -XX:ActiveProcessorCount=2 -jar /home/ec2-user/Pedidos360_Huaman_Mella/consumidores-kinesis-service/target/consumidores-kinesis-service-0.0.1-SNAPSHOT.jar
+Restart=on-failure
+RestartSec=20
+TimeoutStopSec=50
+SuccessExitStatus=143
+
+[Install]
+WantedBy=multi-user.target
