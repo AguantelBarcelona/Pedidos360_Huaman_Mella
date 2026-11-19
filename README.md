@@ -1,6 +1,6 @@
-# Pedidos360 — Evaluación Parcial 2
+# Pedidos360 — Evaluaciones Parciales 2 y 3
 
-**Desarrollo Cloud Native I (DSY1107) · Huamán y Mella · Octubre de 2026**
+**Desarrollo Cloud Native I (DSY1107) · Huamán y Mella · Noviembre de 2026**
 
 Pedidos360 es una aplicación de gestión de pedidos de zapatillas desarrollada con **React, Spring Boot y servicios de AWS**. En la Evaluación Parcial 2 (EP2) se incorpora **mensajería asíncrona** para que la creación de pedidos desencadene tareas de notificación, documentación y auditoría sin obligar al usuario a esperar por esos procesos.
 
@@ -195,7 +195,81 @@ Durante las pruebas en AWS Academy se verificaron:
 
 **Proyecto:** Pedidos360 Huamán Mella
 **Asignatura:** Desarrollo Cloud Native I (DSY1107)
-**Evaluación:** Parcial 2 — mensajería asíncrona con Amazon SNS y Amazon SQS
+**Evaluación:** Parciales 2 y 3 — SNS, SQS y Kinesis
 **Repositorio:** https://github.com/AguantelBarcelona/Pedidos360_Huaman_Mella
 
 El repositorio integra el trabajo de ambos integrantes. La rama `main` corresponde a la versión destinada a entrega y `develop` a la integración del equipo.
+
+## Evaluación Parcial 3 — Amazon Kinesis
+
+La EV3 incorpora procesamiento distribuido de eventos
+mediante Amazon Kinesis Data Streams y Kinesis Client
+Library (KCL), manteniendo la arquitectura SNS y SQS
+implementada en la EP2.
+
+### Arquitectura EV3
+
+```mermaid
+flowchart TD
+    P[pedidos-service] --> OP[Outbox pedidos]
+    I[inventario-service] --> OI[Outbox inventario]
+    OP --> KP[Kinesis pedidos - 3 shards]
+    OI --> KI[Kinesis inventario - 3 shards]
+    KP --> A[KCL analítica]
+    KP --> T[KCL trazabilidad]
+    KI --> V[KCL proyección inventario]
+    A --> DB[(PostgreSQL)]
+    T --> DB
+    V --> DB
+    A --> DDB[(DynamoDB checkpoints)]
+    T --> DDB
+    V --> DDB
+    A -. errores .-> KF[Kinesis eventos fallidos]
+    T -. errores .-> KF
+    V -. errores .-> KF
+    CW[CloudWatch] -. monitoreo .-> A
+    CW -. monitoreo .-> T
+    CW -. monitoreo .-> V
+    ADM[mensajeria-admin-service] --> KP
+    ADM --> KI
+    ADM --> DDB
+    ADM --> CW
+```
+
+### Nuevos componentes
+
+| Componente | Responsabilidad |
+|---|---|
+| consumidores-kinesis-service | Procesamiento de eventos mediante KCL 3.5.4 |
+| pedidos-service | Publicación de eventos de pedidos en Kinesis |
+| inventario-service | Publicación de eventos de inventario en Kinesis |
+| mensajeria-admin-service | Administración REST y monitoreo de Kinesis |
+| infraestructura/kinesis | Plantillas CloudFormation de streams y alarmas |
+
+### Características implementadas
+
+- Dos streams de negocio con tres shards cada uno.
+- Stream independiente de eventos fallidos.
+- Productores con transactional outbox y DTO.
+- Tres aplicaciones consumidoras KCL independientes.
+- Balanceo automático entre workers.
+- Checkpoints persistidos en DynamoDB.
+- Idempotencia mediante PostgreSQL.
+- Reintentos y backoff ante errores.
+- Monitoreo de lag mediante CloudWatch.
+- Administración REST protegida mediante Cognito.
+
+### Pruebas en AWS
+
+Se verificaron la publicación y el consumo de eventos,
+el balanceo de shards, la recuperación ante fallos,
+la idempotencia y las operaciones administrativas REST.
+
+El aumento de retención está implementado, pero su
+ejecución fue bloqueada por una política SCP del
+laboratorio AWS Academy.
+
+### Documentación técnica
+
+- [Evaluación 2 - Migración AWS](docs/EV2_MIGRACION_AWS.md)
+- [Evaluación 3 - Kinesis AWS](docs/EV3_KINESIS_AWS.md)

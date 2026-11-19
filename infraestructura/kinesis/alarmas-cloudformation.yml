@@ -1,0 +1,75 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Alarmas CloudWatch para consumidores Kinesis Pedidos360 EV3
+
+Parameters:
+  UmbralLagMs:
+    Type: Number
+    Default: 60000
+    MinValue: 1000
+
+Resources:
+
+  AlarmaAnalitica:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: pedidos360-kcl-analitica-lag
+      AlarmDescription: Retraso de procesamiento en pedidos analitica
+      Namespace: p360-pedidos-analitica
+      MetricName: MillisBehindLatest
+      Dimensions:
+        - Name: Operation
+          Value: ApplicationTracker
+      Statistic: Maximum
+      Period: 60
+      EvaluationPeriods: 2
+      DatapointsToAlarm: 2
+      Threshold: !Ref UmbralLagMs
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: missing
+
+  AlarmaTrazabilidad:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: pedidos360-kcl-trazabilidad-lag
+      AlarmDescription: Retraso de procesamiento en pedidos trazabilidad
+      Namespace: p360-pedidos-trazabilidad
+      MetricName: MillisBehindLatest
+      Dimensions:
+        - Name: Operation
+          Value: ApplicationTracker
+      Statistic: Maximum
+      Period: 60
+      EvaluationPeriods: 2
+      DatapointsToAlarm: 2
+      Threshold: !Ref UmbralLagMs
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: missing
+
+  AlarmaInventario:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: pedidos360-kcl-inventario-lag
+      AlarmDescription: Retraso de procesamiento en inventario proyeccion
+      Namespace: p360-inventario-proyeccion
+      MetricName: MillisBehindLatest
+      Dimensions:
+        - Name: Operation
+          Value: ApplicationTracker
+      Statistic: Maximum
+      Period: 60
+      EvaluationPeriods: 2
+      DatapointsToAlarm: 2
+      Threshold: !Ref UmbralLagMs
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: missing
+
+Outputs:
+
+  AlarmaAnaliticaNombre:
+    Value: !Ref AlarmaAnalitica
+
+  AlarmaTrazabilidadNombre:
+    Value: !Ref AlarmaTrazabilidad
+
+  AlarmaInventarioNombre:
+    Value: !Ref AlarmaInventario

@@ -6,6 +6,7 @@ import cl.pedidos360.pedidos_service.client.ProductoResponse;
 import cl.pedidos360.pedidos_service.dto.CrearPedidoRequest;
 import cl.pedidos360.pedidos_service.model.Pedido;
 import cl.pedidos360.pedidos_service.messaging.EventoOutboxService;
+import cl.pedidos360.pedidos_service.kinesis.KinesisOutboxService;
 import cl.pedidos360.pedidos_service.repository.PedidoRepository;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -39,6 +40,9 @@ class PedidoServiceTest {
     @Mock
     private EventoOutboxService eventoOutboxService;
 
+    @Mock
+    private KinesisOutboxService kinesisOutboxService;
+
     private PedidoService pedidoService;
 
     @BeforeEach
@@ -47,7 +51,8 @@ class PedidoServiceTest {
                 pedidoRepository,
                 productoClient,
                 inventarioClient,
-                eventoOutboxService
+                eventoOutboxService,
+                kinesisOutboxService
         );
     }
 
@@ -78,9 +83,8 @@ class PedidoServiceTest {
                     Pedido pedido = invocacion.getArgument(0);
 
                     /*
-                     * En una persistencia real JPA ejecuta @PrePersist.
-                     * Como el repositorio está mockeado, se ejecuta
-                     * manualmente para representar ese comportamiento.
+                     * Simulamos el comportamiento de JPA
+                     * durante la persistencia del pedido.
                      */
                     pedido.alCrear();
                     pedido.setId(10L);
@@ -147,15 +151,18 @@ class PedidoServiceTest {
                 .obtenerProducto(1L);
 
         verify(inventarioClient)
-                .reservarStock(
-                        1L,
-                        2
-                );
+                .reservarStock(1L, 2);
 
         verify(pedidoRepository)
                 .save(any(Pedido.class));
 
-        verify(eventoOutboxService).registrarPedidoCreado(resultado);
+        // EV2 - Verificar registro del evento SNS
+        verify(eventoOutboxService)
+                .registrarPedidoCreado(resultado);
+
+        // EV3 - Verificar registro del evento Kinesis
+        verify(kinesisOutboxService)
+                .registrarPedidoCreado(resultado);
     }
 
     @Test
@@ -211,28 +218,21 @@ class PedidoServiceTest {
 
         Pedido pedido = new Pedido();
         pedido.setId(20L);
-        pedido.setClienteSub(
-                "sub-cliente-456"
-        );
+        pedido.setClienteSub("sub-cliente-456");
 
         List<Pedido> pedidosEsperados =
                 List.of(pedido);
 
-        when(
-                pedidoRepository.findByClienteSub(
-                        "sub-cliente-456"
-                )
-        ).thenReturn(pedidosEsperados);
+        when(pedidoRepository.findByClienteSub(
+                "sub-cliente-456"))
+                .thenReturn(pedidosEsperados);
 
         List<Pedido> resultado =
                 pedidoService.buscarPorClienteSub(
                         "sub-cliente-456"
                 );
 
-        assertEquals(
-                1,
-                resultado.size()
-        );
+        assertEquals(1, resultado.size());
 
         assertEquals(
                 20L,
@@ -245,8 +245,6 @@ class PedidoServiceTest {
         );
 
         verify(pedidoRepository)
-                .findByClienteSub(
-                        "sub-cliente-456"
-                );
+                .findByClienteSub("sub-cliente-456");
     }
 }

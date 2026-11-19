@@ -6,7 +6,9 @@ import cl.pedidos360.pedidos_service.client.ProductoResponse;
 import cl.pedidos360.pedidos_service.dto.CrearPedidoRequest;
 import cl.pedidos360.pedidos_service.model.Pedido;
 import cl.pedidos360.pedidos_service.messaging.EventoOutboxService;
+import cl.pedidos360.pedidos_service.kinesis.KinesisOutboxService;
 import cl.pedidos360.pedidos_service.repository.PedidoRepository;
+
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -19,17 +21,20 @@ public class PedidoService {
     private final ProductoClient productoClient;
     private final InventarioClient inventarioClient;
     private final EventoOutboxService eventoOutboxService;
+    private final KinesisOutboxService kinesisOutboxService;
 
     public PedidoService(
             PedidoRepository pedidoRepository,
             ProductoClient productoClient,
             InventarioClient inventarioClient,
-            EventoOutboxService eventoOutboxService) {
+            EventoOutboxService eventoOutboxService,
+            KinesisOutboxService kinesisOutboxService) {
 
         this.pedidoRepository = pedidoRepository;
         this.productoClient = productoClient;
         this.inventarioClient = inventarioClient;
         this.eventoOutboxService = eventoOutboxService;
+        this.kinesisOutboxService = kinesisOutboxService;
     }
 
     public List<Pedido> listarTodos() {
@@ -38,7 +43,8 @@ public class PedidoService {
 
     public Pedido buscarPorId(Long id) {
         return pedidoRepository.findById(id)
-                .orElseThrow(() -> new PedidoNoEncontradoException(id));
+                .orElseThrow(() ->
+                        new PedidoNoEncontradoException(id));
     }
 
     public List<Pedido> buscarPorCliente(String email) {
@@ -61,7 +67,6 @@ public class PedidoService {
         pedido.setCantidad(request.cantidad());
 
         pedido.setClienteSub(clienteSub);
-        
         pedido.setEstado("CREADO");
 
         ProductoResponse producto =
@@ -77,7 +82,13 @@ public class PedidoService {
         );
 
         Pedido guardado = pedidoRepository.save(pedido);
+
+        // EV2 - AWS SNS/SQS
         eventoOutboxService.registrarPedidoCreado(guardado);
+
+        // EV3 - AWS Kinesis
+        kinesisOutboxService.registrarPedidoCreado(guardado);
+
         return guardado;
     }
 
